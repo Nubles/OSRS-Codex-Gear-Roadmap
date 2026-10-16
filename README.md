@@ -1,0 +1,50 @@
+# Codex Gear Roadmap
+
+**Your next gear upgrades, ranked by damage per coin.** Codex Gear Roadmap reads the gear you own and your real levels, works out your best loadout against the monster you are aiming at, and lays out the road ahead: which upgrade adds the most damage for every coin, then the next one from there, until your loadout is close to the best in slot.
+
+It is the fourth plugin in the **Codex** suite, after [Codex Navigator](https://github.com/Nubles/OSRS-Codex-Navigator), [Codex Guardian](https://github.com/Nubles/OSRS-Codex-Guardian) and [Codex Log Insight](https://github.com/Nubles/OSRS-Codex-Log-Insight), and shares their look: warm ink, aged gold and the game's own fonts.
+
+<p align="center">
+  <img src="docs/screenshots/roadmap.png" width="225" alt="Roadmap">
+  <img src="docs/screenshots/loadout.png" width="225" alt="Loadout">
+  <img src="docs/screenshots/targets.png" width="225" alt="Targets">
+</p>
+
+## What it does
+
+- **Roadmap.** A dial with your damage per second now, then the road ahead as a chart: each upgrade is a stop, the stretch your coins already cover is lit, and the rest waits further on. Below it, the next upgrades in order with their price, the damage each adds, what each point of damage costs and whether you can afford it yet. Upgrades you earn rather than buy (a Salve amulet imbue, Dizana's quiver, the void sets), the biggest leaps off the cheap road, and upgrades you could use after some training get their own lists.
+- **Loadout.** The best loadout from what you own, laid out like the equipment screen, with its damage per second, max hit, accuracy, kill time, attack style and prayer. Switch between your best melee, ranged and magic setups, or click any upgrade on the Roadmap to see the loadout it builds, with the new pieces glowing.
+- **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim your roadmap at it.
+- **Upgrade plaque.** When you get an upgrade from your road, a gilt plaque shows the damage it adds and what is next. A matching line can go to the chat box too.
+
+<p align="center">
+  <img src="docs/screenshots/preview.png" width="225" alt="Previewing an upgrade">
+  <img src="docs/screenshots/plaque.png" width="300" alt="Upgrade plaque">
+</p>
+
+## Getting started
+
+Open your bank once so Gear Roadmap knows everything you own. Your worn gear and inventory are read as they change, and the bank is remembered per account. Pick a target on the Targets tab, or type one in the plugin's settings.
+
+## How the numbers work
+
+- **Damage** follows the game's formulas as the OSRS Wiki documents them: accuracy and max hit from your levels, potions, prayers and gear, with the special effects that matter for upgrades, such as the Salve amulet, slayer helmet, void, crystal armour, Inquisitor's, the obsidian set, the twisted bow, the Tumeken's shadow, Osmumten's fang, dragon hunter weapons, demonbane weapons, enchanted bolts and elemental weaknesses.
+- **Your best loadout** is searched for each of melee, ranged and magic from everything you own, then the best of the three is used.
+- **The road** picks the upgrade with the most damage gained per coin, adds it to your gear, searches again and repeats, so each step is weighed against the loadout the steps before it built. Prices are live Grand Exchange prices from RuneLite, and ammunition is priced per 1,000.
+- **Assumptions** are in the settings: combat potions or none, offensive prayers you have unlocked (Piety, Rigour and Augury are read from the game), and whether you are on a slayer task.
+
+## Rules posture
+
+Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. Your bank is saved per account in your RuneLite profile and never leaves your computer.
+
+## Credits
+
+Item and monster stats come from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki) (CC BY-NC-SA 3.0), by way of the wiki's [DPS calculator](https://github.com/weirdgloop/osrs-dps-calc). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Development
+
+```bash
+./gradlew build   # compile and run tests
+./gradlew run     # launch RuneLite with the plugin loaded
+python3 tools/build_data.py <osrs-dps-calc checkout> src/main/resources/com/codex/gearroadmap/gear-roadmap.json   # rebuild the data
+```

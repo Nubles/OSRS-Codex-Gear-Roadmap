@@ -1,0 +1,137 @@
+package com.codex.gearroadmap.data;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+
+/** A monster the player can aim their gear at, with the stats that defend against each attack. */
+public final class Target
+{
+	public static final int D_STAB = 0;
+	public static final int D_SLASH = 1;
+	public static final int D_CRUSH = 2;
+	public static final int D_MAGIC = 3;
+	public static final int D_LIGHT = 4;
+	public static final int D_STANDARD = 5;
+	public static final int D_HEAVY = 6;
+
+	private int id;
+	private String name;
+	private String group;
+	private int hp;
+	private int def;
+	private int mag;
+	private int mb;
+	private int[] d;
+	private int size;
+	private List<String> attr;
+	private boolean slayer;
+	private List<Object> weak;
+	private List<String> only;
+
+	public Target()
+	{
+	}
+
+	public Target(String name, String group, int hp, int def, int magic, int[] defensive, int size, List<String> attributes, boolean slayer)
+	{
+		this.name = name;
+		this.group = group;
+		this.hp = hp;
+		this.def = def;
+		this.mag = magic;
+		this.d = defensive;
+		this.size = size;
+		this.attr = attributes;
+		this.slayer = slayer;
+	}
+
+	public int getId()
+	{
+		return id;
+	}
+
+	public String getName()
+	{
+		return name;
+	}
+
+	/** Boss, Slayer or Training. */
+	public String getGroup()
+	{
+		return group;
+	}
+
+	public int getHp()
+	{
+		return hp;
+	}
+
+	public int getDefence()
+	{
+		return def;
+	}
+
+	public int getMagic()
+	{
+		return mag;
+	}
+
+	public int getMagicAttack()
+	{
+		return mb;
+	}
+
+	public int defensive(int type)
+	{
+		return d == null ? 0 : d[type];
+	}
+
+	public int getSize()
+	{
+		return Math.max(1, size);
+	}
+
+	public boolean is(String attribute)
+	{
+		return attr != null && attr.contains(attribute);
+	}
+
+	public List<String> getAttributes()
+	{
+		return attr == null ? Collections.emptyList() : attr;
+	}
+
+	public boolean isSlayer()
+	{
+		return slayer;
+	}
+
+	/** The element this monster takes extra magic damage from, or null. */
+	public String weakness()
+	{
+		return weak == null || weak.size() < 2 || weak.get(0) == null ? null : weak.get(0).toString().toLowerCase(Locale.ROOT);
+	}
+
+	/** Percent of extra accuracy and damage the weak element gets. */
+	public int weaknessSeverity()
+	{
+		if (weak == null || weak.size() < 2 || !(weak.get(1) instanceof Number))
+		{
+			return 0;
+		}
+		return ((Number) weak.get(1)).intValue();
+	}
+
+	@Override
+	public String toString()
+	{
+		return name;
+	}
+
+	/** Whether the target can be hurt with this kind of attack: melee, ranged or magic. */
+	public boolean allows(String kind)
+	{
+		return only == null || only.contains(kind.toLowerCase());
+	}
+}

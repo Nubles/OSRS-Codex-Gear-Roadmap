@@ -1,0 +1,89 @@
+package com.codex.gearroadmap.core;
+
+import com.codex.gearroadmap.Fixtures;
+import com.codex.gearroadmap.data.Gear;
+import com.codex.gearroadmap.data.RoadmapData;
+import com.codex.gearroadmap.data.Target;
+import com.google.gson.Gson;
+import java.io.IOException;
+import java.util.Set;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+public class AdvisorTest
+{
+	private static RoadmapData data;
+	private static Advisor advisor;
+
+	@BeforeClass
+	public static void load() throws IOException
+	{
+		data = RoadmapData.load(new Gson());
+		advisor = new Advisor(data);
+	}
+
+	@Test
+	public void everyCatalogueItemResolves()
+	{
+		assertEquals(166, data.catalogue().size());
+		assertTrue(data.targets().size() > 60);
+	}
+
+	@Test
+	public void roadmapClimbs()
+	{
+		Set<Gear> owned = Fixtures.midGame(data);
+		Fighter fighter = Fixtures.midGameFighter();
+		Target vorkath = data.target("Vorkath");
+		Roadmap map = advisor.plan(owned, fighter, vorkath, Fixtures.prices(data), 42_000_000);
+		System.out.println("Now " + map.getNow().best().getResult().getKind() + " " + map.getNow().dps() + " "
+			+ map.getNow().best().getLoadout());
+		double previous = map.getNow().dps();
+		long spent = 0;
+		for (Roadmap.Step step : map.getPath())
+		{
+			Roadmap.Option o = step.getOption();
+			System.out.printf("  %-28s %,13d  +%.3f  -> %.3f  %s%n", o.getName(), o.getCost(), o.getGain(), o.getAfter().dps(),
+				o.getAfter().getResult().getKind());
+			assertTrue(o.getAfter().dps() > previous);
+			assertTrue(step.getSpent() > spent);
+			previous = o.getAfter().dps();
+			spent = step.getSpent();
+		}
+		for (Roadmap.Option o : map.getFree())
+		{
+			System.out.printf("  free %-23s +%.3f %s%n", o.getName(), o.getGain(), o.getEarn());
+			assertEquals(0, o.getCost());
+		}
+		for (Roadmap.Option o : map.getLocked())
+		{
+			System.out.printf("  locked %-21s +%.3f %s%n", o.getName(), o.getGain(), o.getMissing());
+			assertFalse(o.getMissing().isEmpty());
+		}
+		for (Roadmap.Option o : map.getLeaps())
+		{
+			System.out.printf("  leap %-23s %,13d +%.3f%n", o.getName(), o.getCost(), o.getGain());
+		}
+		assertFalse(map.getPath().isEmpty());
+	}
+
+	@Test
+	public void ownedUpgradesAreNotSuggested()
+	{
+		Set<Gear> owned = Fixtures.midGame(data);
+		Roadmap map = advisor.plan(owned, Fixtures.midGameFighter(), data.target("General Graardor"), Fixtures.prices(data), 0);
+		for (Roadmap.Step step : map.getPath())
+		{
+			for (Gear g : step.getOption().getPieces())
+			{
+				assertFalse(g.getName(), owned.contains(g));
+			}
+			assertFalse(step.isAffordable());
+		}
+		assertNull(map.getPath().isEmpty() ? "empty" : null);
+	}
+}

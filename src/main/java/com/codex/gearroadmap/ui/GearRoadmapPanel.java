@@ -1,0 +1,198 @@
+package com.codex.gearroadmap.ui;
+
+import com.codex.gearroadmap.core.Report;
+import com.codex.gearroadmap.core.Roadmap;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.util.function.Consumer;
+import javax.swing.JComponent;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
+import net.runelite.client.ui.PluginPanel;
+
+/**
+ * The Gear Roadmap side panel: the crest, then three pages. Roadmap is the road of
+ * upgrades for the aimed target, Loadout is the gear that road starts from, and Targets
+ * compares the player against every target and lets them aim at another.
+ */
+public class GearRoadmapPanel extends PluginPanel
+{
+	private static final String[] TABS = {"roadmap", "loadout", "targets"};
+
+	private final ItemIcons icons;
+	private final Consumer<String> onAim;
+	private final Crest crest = new Crest();
+	private final Segmented tabs = new Segmented(true, "Roadmap", "Loadout", "Targets");
+	private final Segmented kinds = new Segmented(false, LoadoutView.KINDS);
+	private final Segmented filters = new Segmented(false, TargetsView.FILTERS);
+	private final CardLayout cards = new CardLayout();
+	private final JPanel content = new JPanel(cards);
+	private final JScrollPane roadmap = scroller();
+	private final JScrollPane loadout = scroller();
+	private final JScrollPane targets = scroller();
+	private final JPanel kindHolder = new JPanel(new BorderLayout());
+
+	private Report report = Report.loggedOut();
+	private String playerName;
+	private String search = "";
+	private Roadmap.Option preview;
+
+	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim)
+	{
+		super(false);
+		this.icons = icons;
+		this.onAim = onAim;
+		setLayout(new BorderLayout());
+		setBackground(Theme.INK);
+
+		JPanel north = new JPanel(new BorderLayout());
+		north.setOpaque(false);
+		north.add(crest, BorderLayout.NORTH);
+		JPanel tabHolder = new JPanel(new BorderLayout());
+		tabHolder.setOpaque(false);
+		tabHolder.setBorder(new EmptyBorder(8, 8, 2, 8));
+		tabHolder.add(tabs, BorderLayout.CENTER);
+		north.add(tabHolder, BorderLayout.SOUTH);
+		add(north, BorderLayout.NORTH);
+
+		JPanel loadoutHolder = new JPanel(new BorderLayout());
+		loadoutHolder.setOpaque(false);
+		kindHolder.setOpaque(false);
+		kindHolder.setBorder(new EmptyBorder(6, 8, 0, 8));
+		kindHolder.add(kinds, BorderLayout.CENTER);
+		loadoutHolder.add(kindHolder, BorderLayout.NORTH);
+		loadoutHolder.add(loadout, BorderLayout.CENTER);
+
+		JPanel targetHolder = new JPanel(new BorderLayout());
+		targetHolder.setOpaque(false);
+		JPanel tools = new JPanel(new BorderLayout(0, 5));
+		tools.setOpaque(false);
+		tools.setBorder(new EmptyBorder(6, 8, 0, 8));
+		tools.add(new SearchField("Find a target", text ->
+		{
+			search = text;
+			rebuildTargets();
+		}), BorderLayout.NORTH);
+		tools.add(filters, BorderLayout.SOUTH);
+		targetHolder.add(tools, BorderLayout.NORTH);
+		targetHolder.add(targets, BorderLayout.CENTER);
+
+		content.setOpaque(false);
+		content.add(roadmap, TABS[0]);
+		content.add(loadoutHolder, TABS[1]);
+		content.add(targetHolder, TABS[2]);
+		add(content, BorderLayout.CENTER);
+
+		tabs.onChange(tab ->
+		{
+			if (tab == 1 && preview != null)
+			{
+				preview = null;
+				rebuildLoadout();
+			}
+			cards.show(content, TABS[tab]);
+		});
+		kinds.onChange(i -> rebuildLoadout());
+		filters.onChange(i -> rebuildTargets());
+		rebuild();
+	}
+
+	private static JScrollPane scroller()
+	{
+		JScrollPane scroll = new JScrollPane();
+		scroll.setBorder(null);
+		scroll.setOpaque(false);
+		scroll.getViewport().setOpaque(false);
+		scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		scroll.getVerticalScrollBar().setUnitIncrement(16);
+		scroll.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
+		return scroll;
+	}
+
+	/** Called on the Swing thread with each new report. */
+	public void update(Report report, String playerName)
+	{
+		this.report = report;
+		this.playerName = playerName;
+		preview = null;
+		rebuild();
+	}
+
+	/** Opens one tab, for previews and tests. */
+	public void showTab(int tab)
+	{
+		tabs.setSelected(tab, false);
+		cards.show(content, TABS[tab]);
+	}
+
+	/** Shows the loadout an upgrade would build. */
+	public void preview(Roadmap.Option option)
+	{
+		preview = option;
+		rebuildLoadout();
+		tabs.setSelected(1, false);
+		cards.show(content, TABS[1]);
+		SwingUtilities.invokeLater(() -> loadout.getVerticalScrollBar().setValue(0));
+	}
+
+	public void selectKind(int kind)
+	{
+		kinds.setSelected(kind, false);
+		rebuildLoadout();
+	}
+
+	public void selectFilter(int filter)
+	{
+		filters.setSelected(filter, false);
+		rebuildTargets();
+	}
+
+	private void rebuild()
+	{
+		crest.update(report, playerName);
+		replace(roadmap, RoadmapView.build(report, icons, () -> showTab(2), this::preview));
+		rebuildLoadout();
+		rebuildTargets();
+	}
+
+	private void rebuildLoadout()
+	{
+		kindHolder.setVisible(preview == null);
+		replace(loadout, LoadoutView.build(report, kinds.getSelected(), preview, icons, () ->
+		{
+			preview = null;
+			rebuildLoadout();
+			showTab(0);
+		}));
+	}
+
+	private void rebuildTargets()
+	{
+		String focused = report.getRoadmap() == null ? null : report.getRoadmap().getTarget().getName();
+		replace(targets, TargetsView.build(report, filters.getSelected(), search, focused, name ->
+		{
+			showTab(0);
+			onAim.accept(name);
+		}));
+	}
+
+	private static void replace(JScrollPane scroll, JComponent view)
+	{
+		int position = scroll.getVerticalScrollBar().getValue();
+		scroll.setViewportView(view);
+		scroll.revalidate();
+		SwingUtilities.invokeLater(() -> scroll.getVerticalScrollBar().setValue(position));
+	}
+
+	@Override
+	protected void paintComponent(Graphics g)
+	{
+		g.setColor(Theme.INK);
+		g.fillRect(0, 0, getWidth(), getHeight());
+	}
+}

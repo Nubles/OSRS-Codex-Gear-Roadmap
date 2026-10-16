@@ -1,0 +1,121 @@
+package com.codex.gearroadmap.ui;
+
+import com.codex.gearroadmap.core.Loadout;
+import com.codex.gearroadmap.core.Planner;
+import com.codex.gearroadmap.core.Report;
+import com.codex.gearroadmap.core.Result;
+import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.data.Gear;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.GridLayout;
+import java.util.HashSet;
+import java.util.Set;
+import javax.swing.JPanel;
+import javax.swing.border.EmptyBorder;
+
+/** The Loadout tab: the best setup the player owns for each kind of attack, or the one an upgrade builds. */
+final class LoadoutView
+{
+	static final String[] KINDS = {"Best", "Melee", "Ranged", "Magic"};
+
+	private LoadoutView()
+	{
+	}
+
+	static StackPanel build(Report report, int kindIndex, Roadmap.Option preview, ItemIcons icons, Runnable clearPreview)
+	{
+		StackPanel stack = new StackPanel(6, 8);
+		Roadmap map = report.getRoadmap();
+		if (!report.isLoggedIn() || map == null)
+		{
+			stack.add(Rows.note(report.isLoggedIn() ? "Reading your gear..." : "Log in to see your best loadouts.", 190));
+			return stack;
+		}
+		Planner.Plan plan;
+		Set<Gear> fresh = new HashSet<>();
+		if (preview != null)
+		{
+			plan = preview.getAfter();
+			fresh.addAll(preview.getPieces());
+			Card banner = new Card(new BorderLayout(8, 0));
+			banner.accent(Theme.TEAL);
+			banner.setBorder(new EmptyBorder(6, 10, 6, 10));
+			JPanel text = new JPanel(new BorderLayout());
+			text.setOpaque(false);
+			text.add(Ui.label("With " + preview.getName(), Theme.body(), Theme.TEXT), BorderLayout.NORTH);
+			text.add(Ui.label("New pieces glow teal", Theme.small(), Theme.TEAL), BorderLayout.SOUTH);
+			banner.add(text, BorderLayout.CENTER);
+			JPanel trail = new JPanel(new BorderLayout());
+			trail.setOpaque(false);
+			trail.add(new CodexButton("Back", false, clearPreview), BorderLayout.NORTH);
+			banner.add(trail, BorderLayout.EAST);
+			stack.add(banner);
+		}
+		else if (kindIndex == 0)
+		{
+			plan = map.getNow().best();
+		}
+		else
+		{
+			plan = map.getNow().get(Result.Kind.values()[kindIndex - 1]);
+		}
+		Result r = plan == null ? null : plan.getResult();
+		if (r == null || r.getKind() == null || r.getDps() <= 0)
+		{
+			Result.Kind wanted = kindIndex == 0 ? null : Result.Kind.values()[kindIndex - 1];
+			String name = map.getTarget().getName();
+			stack.add(Rows.note(wanted != null && !map.getTarget().allows(wanted.name())
+				? name + " can't be hurt with " + wanted.toString().toLowerCase() + "."
+				: "You own nothing that can attack " + name + " this way.", 190));
+			return stack;
+		}
+		Color tint = Theme.kind(r.getKind());
+		stack.add(new SectionHeader(r.getKind() + " vs " + map.getTarget().getName()));
+		Card frame = new Card(new BorderLayout());
+		frame.setBorder(new EmptyBorder(8, 6, 8, 6));
+		frame.add(new GearGrid(plan.getLoadout(), fresh, tint, icons), BorderLayout.CENTER);
+		stack.add(frame);
+
+		JPanel tiles = new JPanel(new GridLayout(2, 2, 5, 5));
+		tiles.setOpaque(false);
+		double before = map.getNow().dps();
+		tiles.add(new StatTile(Format.dps(r.getDps()), "DPS", preview != null ? Format.gain(r.getDps() - before) + " vs now" : null, tint));
+		tiles.add(new StatTile(String.valueOf(r.getMaxHit()), "Max hit", "every " + r.getTicks() + " ticks", Theme.GOLD));
+		tiles.add(new StatTile(Format.percent(r.getAccuracy()), "Accuracy", null, Theme.TEAL));
+		tiles.add(new StatTile(Format.time(r.secondsToKill(map.getTarget())), "Kill time", map.getTarget().getHp() + " hitpoints",
+			Theme.EMBER));
+		stack.add(tiles);
+
+		stack.add(Rows.check(Mark.Kind.NOTE, styleLine(r), r.getPrayer() == null ? "No prayer" : r.getPrayer(), null));
+		stack.add(Rows.check(Mark.Kind.NOTE, report.getBoosts() == null ? "No boosts" : report.getBoosts(),
+			pieces(plan.getLoadout()) + " pieces worn", null));
+		if (preview == null)
+		{
+			stack.add(Rows.note("Built from the " + report.getOwned() + " pieces of combat gear you own. Click any upgrade on the Roadmap to see the loadout it makes.", 190));
+		}
+		return stack;
+	}
+
+	private static String styleLine(Result r)
+	{
+		if (r.getSpell() != null)
+		{
+			return r.getSpell() + ", " + r.getStyle().toLowerCase();
+		}
+		return r.getStyle();
+	}
+
+	private static int pieces(Loadout lo)
+	{
+		int n = 0;
+		for (int i = 0; i < Gear.SLOTS; i++)
+		{
+			if (lo.get(i) != null)
+			{
+				n++;
+			}
+		}
+		return n;
+	}
+}
