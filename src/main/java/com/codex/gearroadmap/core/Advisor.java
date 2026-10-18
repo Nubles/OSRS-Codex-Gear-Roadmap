@@ -5,6 +5,7 @@ import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -26,6 +27,8 @@ public final class Advisor
 	public static final int STEPS = 8;
 	public static final int AMMO_STACK = 1000;
 	private static final int SIDE_LIST = 4;
+	/** How many of the cheapest do-nothing-alone pieces the road tries in pairs. */
+	private static final int PAIR_POOL = 10;
 
 	/** Grand Exchange prices: 0 when an item has none. */
 	public interface Prices
@@ -147,6 +150,9 @@ public final class Advisor
 			Planner.Plan pickPlan = null;
 			long pickCost = 0;
 			double pickRatio = 0;
+			List<Candidate> pickParts = Collections.emptyList();
+			List<Candidate> flat = new ArrayList<>();
+			Map<Candidate, Long> flatCost = new HashMap<>();
 			for (Candidate c : candidates)
 			{
 				if (used.contains(c) || have.containsAll(c.pieces) || fighter.missing(c.requirements) != null)
@@ -162,6 +168,11 @@ public final class Advisor
 				double gain = after.dps() - base;
 				if (gain < threshold(base))
 				{
+					if (c.pieces.size() == 1 && !c.ammo && morePower(c.pieces.get(0), current.best()))
+					{
+						flat.add(c);
+						flatCost.put(c, cost);
+					}
 					continue;
 				}
 				double ratio = gain / cost;
@@ -173,11 +184,41 @@ public final class Advisor
 					pickRatio = ratio;
 				}
 			}
+			// A piece that adds strength or accuracy short of the next max hit does nothing alone,
+			// yet two of them together can cross it: try the cheapest such pieces in pairs.
+			flat.sort(Comparator.comparingLong(flatCost::get));
+			int pool = Math.min(flat.size(), PAIR_POOL);
+			for (int i = 0; i < pool; i++)
+			{
+				for (int j = i + 1; j < pool; j++)
+				{
+					Candidate a = flat.get(i);
+					Candidate b = flat.get(j);
+					if (a.pieces.get(0).getSlot() == b.pieces.get(0).getSlot())
+					{
+						continue;
+					}
+					long cost = flatCost.get(a) + flatCost.get(b);
+					List<Gear> both = new ArrayList<>(a.pieces);
+					both.addAll(b.pieces);
+					Planner.Plan after = planner.withAdded(current, have, both, fighter, target);
+					double gain = after.dps() - base;
+					if (gain >= threshold(base) && gain / cost > pickRatio)
+					{
+						pick = new Candidate(a.name + " + " + b.name, both, a.requirements, null, null, false);
+						pickPlan = after;
+						pickCost = cost;
+						pickRatio = gain / cost;
+						pickParts = Arrays.asList(a, b);
+					}
+				}
+			}
 			if (pick == null)
 			{
 				break;
 			}
 			used.add(pick);
+			used.addAll(pickParts);
 			have.addAll(pick.pieces);
 			Planner.Best next = planner.optimise(have, fighter, target);
 			// The fresh search is never worse than the quick one; keep whichever found more.
@@ -226,6 +267,31 @@ public final class Advisor
 			rows.add(new Roadmap.Survey(t, best.best()));
 		}
 		return rows;
+	}
+
+	/** Whether a piece has more damage than what the plan wears in its slot, for the plan's own style. */
+	static boolean morePower(Gear g, Planner.Plan plan)
+	{
+		Result.Kind kind = plan.getResult().getKind();
+		if (kind == null || g.getSlot() == Gear.WEAPON)
+		{
+			return false;
+		}
+		Gear worn = plan.getLoadout().get(g.getSlot());
+		return power(g, kind) > (worn == null ? 0 : power(worn, kind));
+	}
+
+	private static int power(Gear g, Result.Kind kind)
+	{
+		switch (kind)
+		{
+			case RANGED:
+				return g.rangedStrength();
+			case MAGIC:
+				return g.magicDamage();
+			default:
+				return g.strength();
+		}
 	}
 
 	private static double threshold(double base)

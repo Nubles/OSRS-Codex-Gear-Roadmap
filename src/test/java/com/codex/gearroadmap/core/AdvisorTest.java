@@ -72,6 +72,20 @@ public class AdvisorTest
 	}
 
 	@Test
+	public void piecesThatOnlyHelpTogetherAreBoughtAsAPair()
+	{
+		// With a rapier at Vorkath neither a +3 strength helm nor +1 strength legs moves the max hit
+		// alone, but together they do, and that pair is far better value than a 25M fang.
+		Set<Gear> owned = Fixtures.midGame(data);
+		owned.add(data.named("Ghrazi rapier"));
+		Roadmap map = advisor.plan(owned, Fixtures.midGameFighter(), data.target("Vorkath"), Fixtures.prices(data), 0);
+		Roadmap.Option first = map.getPath().get(0).getOption();
+		assertEquals(2, first.getPieces().size());
+		assertTrue(first.getName(), first.getName().contains(" + "));
+		assertTrue(first.getGain() > 0.1);
+	}
+
+	@Test
 	public void ownedUpgradesAreNotSuggested()
 	{
 		Set<Gear> owned = Fixtures.midGame(data);
