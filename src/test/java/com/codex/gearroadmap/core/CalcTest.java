@@ -147,4 +147,115 @@ public class CalcTest
 		assertTrue(r.getDps() > 3);
 		assertEquals(4, r.getTicks());
 	}
+
+	private static Loadout named(String... names)
+	{
+		Loadout lo = Loadout.empty();
+		for (String n : names)
+		{
+			Gear g = data.named(n);
+			assertNotNull("No gear named " + n, g);
+			lo = lo.with(g);
+		}
+		return lo;
+	}
+
+	private static Target mob(String name)
+	{
+		Target t = data.target(name);
+		assertNotNull(name, t);
+		return t;
+	}
+
+	@Test
+	public void plainSlayerHelmetAndBlackMaskCountForMelee()
+	{
+		// These have no attack bonuses, and were once missing from the gear table.
+		Fighter onTask = fighter(99, 99, 99, true, true);
+		Target demon = mob("Abyssal demon");
+		double bare = calc.best(named("Abyssal whip"), onTask, demon, Result.Kind.MELEE).getDps();
+		assertTrue(calc.best(named("Abyssal whip", "Slayer helmet"), onTask, demon, Result.Kind.MELEE).getDps() > bare * 1.15);
+		assertTrue(calc.best(named("Abyssal whip", "Black mask"), onTask, demon, Result.Kind.MELEE).getDps() > bare * 1.15);
+		assertNotNull(data.gear(8901));
+	}
+
+	@Test
+	public void imbuedSalveCountsForRanged()
+	{
+		Fighter f = fighter(99, 99, 99, true, false);
+		Target vorkath = mob("Vorkath");
+		double plain = calc.best(named("Armadyl crossbow", "Diamond dragon bolts (e)"), f, vorkath, Result.Kind.RANGED).getDps();
+		double salve = calc.best(named("Armadyl crossbow", "Diamond dragon bolts (e)", "Salve amulet(i)"), f, vorkath,
+			Result.Kind.RANGED).getDps();
+		assertTrue(salve > plain * 1.1);
+	}
+
+	@Test
+	public void iceSpellsHaveNoElementAndNeedTheRightStaff()
+	{
+		Fighter f = Fighter.maxed(Fighter.Boost.NONE);
+		Target zulrah = mob("Zulrah");
+		Result fire = calc.best(named("Staff of fire"), f, mob("General Graardor"), Result.Kind.MAGIC);
+		assertEquals("A staff of fire cannot autocast ancients", "Fire Surge", fire.getSpell());
+		Result ancient = calc.best(named("Ancient staff"), f, mob("General Graardor"), Result.Kind.MAGIC);
+		assertEquals("Ice Barrage", ancient.getSpell());
+		// Zulrah is weak to fire, but ice spells have no element, so barrage gains nothing there.
+		Result barrage = calc.styled(named("Kodai wand"), f, zulrah, "magic", "Autocast");
+		assertEquals("Fire Surge", barrage.getSpell());
+	}
+
+	@Test
+	public void dualMacuahuitlHitsTwiceForHalf()
+	{
+		Fighter f = fighter(99, 99, 99, true, false);
+		Result r = calc.best(named("Dual macuahuitl"), f, mob("General Graardor"), Result.Kind.MELEE);
+		// The second half only lands after the first, so it is worth less than one full hit.
+		double oneHit = r.getAccuracy() * r.getMaxHit() / 2.0 / (r.getTicks() * 0.6);
+		assertTrue(r.getDps() < oneHit);
+	}
+
+	@Test
+	public void dragonHunterCrossbowAddsToTheImbuedHelmet()
+	{
+		Fighter f = fighter(99, 99, 99, false, true);
+		Result r = calc.styled(named("Dragon hunter crossbow", "Dragon bolts", "Slayer helmet (i)"), f, mob("Vorkath"), "ranged", "Rapid");
+		// 99 Ranged, +122 ranged strength from the bolts: 27 base, then 28/20 rather than 23/20 times 5/4.
+		Result bare = calc.styled(named("Dragon hunter crossbow", "Dragon bolts"), f, mob("General Graardor"), "ranged", "Rapid");
+		assertEquals(bare.getMaxHit() * 28 / 20, r.getMaxHit());
+	}
+
+	@Test
+	public void targetsHaveTheirOwnRules()
+	{
+		Fighter f = Fighter.maxed(Fighter.Boost.POTIONS);
+		Calc.Npc zulrah = new Calc.Npc(mob("Zulrah"), Result.Kind.RANGED, false);
+		assertEquals(47.5, zulrah.hit(80), 1e-9);
+		Calc.Npc kraken = new Calc.Npc(mob("Kraken"), Result.Kind.RANGED, false);
+		assertEquals(5, kraken.hit(35), 1e-9);
+		assertEquals(1, kraken.hit(3), 1e-9);
+		assertEquals(0, calc.best(named("Abyssal whip"), f, mob("Kraken"), Result.Kind.MELEE).getDps(), 0);
+		double corp = calc.best(named("Abyssal whip"), f, mob("Corporeal Beast"), Result.Kind.MELEE).getDps();
+		double spear = calc.best(named("Zamorakian hasta"), f, mob("Corporeal Beast"), Result.Kind.MELEE).getDps();
+		assertTrue("hastas stab the Corporeal Beast in full", spear > corp * 1.5);
+	}
+
+	@Test
+	public void revenantWeaponsOnlyShineInTheWilderness()
+	{
+		Fighter f = fighter(99, 99, 99, true, false);
+		double wild = calc.best(named("Webweaver bow"), f, mob("Callisto"), Result.Kind.RANGED).getDps();
+		Result r = calc.best(named("Webweaver bow"), f, mob("Callisto"), Result.Kind.RANGED);
+		assertTrue(r.getMaxHit() > calc.best(named("Webweaver bow"), f, mob("General Graardor"), Result.Kind.RANGED).getMaxHit());
+		assertTrue(wild > 0);
+	}
+
+	@Test
+	public void rubyBoltsAreAveragedOverTheKill()
+	{
+		Calc.Npc plain = new Calc.Npc(mob("General Graardor"), Result.Kind.RANGED, false);
+		// 255 hitpoints: a fifth of the health left, so far less than the 51 a full-health proc does.
+		double average = Calc.rubyAverage(plain, 255, 20, 100);
+		assertTrue(average > 24 && average < 27);
+		assertEquals(100, Calc.rubyAverage(plain, 100000, 20, 100), 0.3);
+	}
 }

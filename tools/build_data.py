@@ -199,7 +199,27 @@ CATALOGUE = [
     ("Eternal boots", {M: 75, D: 75}),
     ("Seers ring (i)", {}, {"build": [6731], "note": "Imbue a seers ring"}),
     ("Magus ring", {}),
+    ("Tome of fire", {M: 50}, {"note": "Charged with burnt pages, for fire spells"}),
+    # Effects that carry no visible bonus
+    ("Slayer helmet (i)", {}, {"earn": "Slayer reward points, imbued at Nightmare Zone or Soul Wars"}),
+    ("Salve amulet(i)", {}, {"earn": "Imbue a salve amulet"}),
+    # Revenant weapons: half again as strong against monsters in the Wilderness
+    ("Ursine chainmace", {A: 70}, {"note": "Wilderness only, charged with revenant ether"}),
+    ("Webweaver bow", {R: 70}, {"note": "Wilderness only, charged with revenant ether"}),
+    ("Accursed sceptre", {M: 70}, {"note": "Wilderness only, charged with revenant ether"}),
 ]
+
+# Items whose effect is not in their bonuses, kept even when every bonus is zero or below.
+EFFECT_ITEMS = {"slayer helmet", "slayer helmet (i)", "black mask", "black mask (i)", "salve amulet", "salve amulet(i)",
+                "salve amulet (e)", "salve amulet(ei)"}
+
+# Monsters fought in the Wilderness, where revenant weapons get their bonus.
+WILDERNESS = {"Callisto", "Venenatis", "Vet'ion", "Artio", "Spindel", "Scorpia", "Chaos Elemental"}
+
+
+def canonical(name):
+    """Charged copies such as "Black mask (7)" count as the one item."""
+    return re.sub(r"^(Black mask(?: \(i\))?) \(\d+\)$", r"\1", name)
 
 # Targets that only some attacks can hurt, by their label.
 ONLY = {
@@ -207,7 +227,12 @@ ONLY = {
     "Kree'arra": ["ranged", "magic"],
     "Zulrah": ["ranged", "magic"],
     "Grotesque Guardians": ["melee"],
+    "The Leviathan": ["ranged", "magic"],
 }
+
+# Defence levels that change during the fight, given as the middle of their range.
+# Vardorvis's defence falls from 215 to 145 as he loses health.
+DEFENCE = {"Vardorvis": 180}
 
 TARGETS = [
     # (group, name, version or None, label)
@@ -350,7 +375,7 @@ def main():
     for e in equipment:
         if e["slot"] not in SLOTS:
             continue
-        groups.setdefault(e["name"].lower(), []).append(e)
+        groups.setdefault(canonical(e["name"]).lower(), []).append(e)
 
     by_id = {}
     for name, entries in groups.items():
@@ -372,13 +397,13 @@ def main():
         b = e["bonuses"]
         offence = [o["stab"], o["slash"], o["crush"], o["magic"], o["ranged"]]
         power = [b["str"], b["ranged_str"], b["magic_str"]]
-        useful = any(v > 0 for v in offence + power) or name in catalogue_names
+        useful = any(v > 0 for v in offence + power) or name in catalogue_names or name in EFFECT_ITEMS
         if not useful or e["slot"] == "weapon" and e["category"] == "Unarmed" and name not in catalogue_names:
             continue
         ids = sorted({x["id"] for x in entries})
         item = {
             "id": e["id"],
-            "name": e["name"],
+            "name": canonical(e["name"]),
             "slot": SLOTS.index(e["slot"]),
             "o": offence,
             "p": power,
@@ -433,7 +458,7 @@ def main():
             "name": label or name,
             "group": group,
             "hp": sk["hp"],
-            "def": sk["def"],
+            "def": DEFENCE.get(label or name, sk["def"]),
             "mag": sk["magic"],
             "mb": m["offensive"]["magic"],
             "d": [d["stab"], d["slash"], d["crush"], d["magic"], d["light"], d["standard"], d["heavy"]],
@@ -442,6 +467,10 @@ def main():
             "slayer": bool(m.get("is_slayer_monster")),
             "weak": [m["weakness"]["element"], m["weakness"]["severity"]] if m.get("weakness") else None,
         })
+        if d.get("flat_armour"):
+            targets[-1]["fa"] = d["flat_armour"]
+        if (label or name) in WILDERNESS:
+            targets[-1]["wild"] = True
         if (label or name) in ONLY:
             targets[-1]["only"] = ONLY[label or name]
 

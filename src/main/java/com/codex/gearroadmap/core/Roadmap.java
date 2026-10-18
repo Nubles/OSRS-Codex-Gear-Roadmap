@@ -2,6 +2,7 @@ package com.codex.gearroadmap.core;
 
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.Target;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -176,6 +177,18 @@ public final class Roadmap
 	public Target getTarget()
 	{
 		return target;
+	}
+
+	/** The same road, with what the player's coins now cover. */
+	public Roadmap withCoins(long coins)
+	{
+		List<Step> steps = new ArrayList<>();
+		for (Step s : path)
+		{
+			steps.add(new Step(s.option, s.spent, s.spent <= coins));
+		}
+		List<Option> bought = new ArrayList<>(leaps);
+		return new Roadmap(target, now, steps, free, locked, bought, coins);
 	}
 
 	public Planner.Best getNow()

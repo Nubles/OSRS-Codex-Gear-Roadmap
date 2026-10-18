@@ -42,6 +42,19 @@ public final class Advisor
 		{"Obsidian armour", null, "obsidian helmet", "obsidian platebody", "obsidian platelegs"},
 	};
 
+	/** Earned upgrades that are pointless once a better form of the same item is owned. */
+	private static final String[][] SUPERSEDED = {
+		{"salve amulet", "salve amulet(i)", "salve amulet (e)", "salve amulet(ei)"},
+		{"salve amulet(i)", "salve amulet (e)", "salve amulet(ei)"},
+		{"salve amulet (e)", "salve amulet(ei)"},
+		{"black mask", "black mask (i)", "slayer helmet", "slayer helmet (i)"},
+		{"black mask (i)", "slayer helmet (i)"},
+		{"slayer helmet", "slayer helmet (i)"},
+		{"fire cape", "infernal cape"},
+		{"ava's accumulator", "ava's assembler", "dizana's quiver", "blessed dizana's quiver"},
+		{"saradomin cape", "imbued saradomin cape"},
+	};
+
 	private final RoadmapData data;
 	private final Planner planner;
 
@@ -289,7 +302,7 @@ public final class Advisor
 		{
 			Gear g = entry.getGear();
 			if (owned.contains(g) || g.getName().startsWith("Void ") || g.getName().startsWith("Elite void")
-				|| g.key().startsWith("obsidian helmet"))
+				|| g.key().startsWith("obsidian helmet") || superseded(g, owned))
 			{
 				continue;
 			}
@@ -321,6 +334,26 @@ public final class Advisor
 			}
 		}
 		return list;
+	}
+
+	private boolean superseded(Gear g, Set<Gear> owned)
+	{
+		for (String[] row : SUPERSEDED)
+		{
+			if (!row[0].equals(g.key()))
+			{
+				continue;
+			}
+			for (int i = 1; i < row.length; i++)
+			{
+				Gear better = data.named(row[i]);
+				if (better != null && owned.contains(better))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Something the roadmap can recommend: one piece, or a set that only works whole. */

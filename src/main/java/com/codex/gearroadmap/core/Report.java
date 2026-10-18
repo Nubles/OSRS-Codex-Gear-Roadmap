@@ -12,6 +12,9 @@ public final class Report
 	private final String boosts;
 	private final int owned;
 	private final boolean bankSeen;
+	private boolean ironman;
+	private boolean seasonal;
+	private String task;
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -21,6 +24,22 @@ public final class Report
 		this.boosts = boosts;
 		this.owned = owned;
 		this.bankSeen = bankSeen;
+	}
+
+	/** A copy that knows the account: ironmen cannot buy, and seasonal worlds have their own economy. */
+	public Report withAccount(boolean ironman, boolean seasonal, String task)
+	{
+		Report r = new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen);
+		r.ironman = ironman;
+		r.seasonal = seasonal;
+		r.task = task;
+		return r;
+	}
+
+	/** A copy with another roadmap, such as the same road with the player's coins updated. */
+	public Report withRoadmap(Roadmap roadmap)
+	{
+		return new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen).withAccount(ironman, seasonal, task);
 	}
 
 	public static Report loggedOut()
@@ -54,6 +73,23 @@ public final class Report
 	public int getOwned()
 	{
 		return owned;
+	}
+
+	/** Ironmen cannot buy from the Grand Exchange, so prices stand for how hard an item is to get. */
+	public boolean isIronman()
+	{
+		return ironman;
+	}
+
+	public boolean isSeasonal()
+	{
+		return seasonal;
+	}
+
+	/** The current slayer task's name, lower case, or null. */
+	public String getTask()
+	{
+		return task;
 	}
 
 	/** Whether the bank has been read, so the owned list is complete. */

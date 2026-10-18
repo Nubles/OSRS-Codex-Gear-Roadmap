@@ -4,6 +4,7 @@ import com.codex.gearroadmap.core.Advisor;
 import com.codex.gearroadmap.core.Fighter;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.SlayerTask;
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
@@ -39,13 +40,16 @@ import net.runelite.api.Player;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
+import net.runelite.api.WorldType;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.StatChanged;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.gameval.DBTableID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatColorType;
@@ -79,7 +83,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 		Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC, Skill.PRAYER, Skill.HITPOINTS, Skill.AGILITY,
 	};
 	private static final Set<Integer> UNLOCK_VARBITS = new HashSet<>(Arrays.asList(
-		VarbitID.PRAYER_RIGOUR_UNLOCKED, VarbitID.PRAYER_AUGURY_UNLOCKED, VarbitID.KR_KNIGHTWAVES_STATE));
+		VarbitID.PRAYER_RIGOUR_UNLOCKED, VarbitID.PRAYER_AUGURY_UNLOCKED, VarbitID.KR_KNIGHTWAVES_STATE,
+		VarbitID.PRAYER_DEADEYE_UNLOCKED, VarbitID.PRAYER_MYSTIC_VIGOUR_UNLOCKED, VarbitID.KANDARIN_DIARY_HARD_COMPLETE,
+		VarbitID.SLAYER_TARGET_BOSSID, VarbitID.IRONMAN));
+	private static final Set<Integer> TASK_VARPS = new HashSet<>(Arrays.asList(VarPlayerID.SLAYER_COUNT, VarPlayerID.SLAYER_TARGET));
+	/** The slayer task id that stands for "a boss", whose name is then looked up from the boss id. */
+	private static final int BOSS_TASK = 98;
 	/** King's Ransom's knight training is done from this state on, which unlocks Piety and Chivalry. */
 	private static final int KNIGHT_WAVES_DONE = 8;
 	private static final int ANALYSE_GAP_TICKS = 3;
@@ -131,10 +140,14 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private long inventoryCoins;
 	private Boolean ancients;
 	private boolean dirty;
+	private boolean coinsDirty;
 	private int ticksSinceAnalysis;
+	private final Map<Skill, Integer> realLevels = new HashMap<>();
 
 	/** What the latest roadmap was, so a claimed upgrade can be named; written on the executor. */
 	private volatile Roadmap lastRoadmap;
+	private volatile Report lastReport;
+	private volatile String lastName;
 	private volatile SurveyCache survey;
 
 	/** The bank as last seen, saved per account so the roadmap knows it between sessions. */
@@ -165,6 +178,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws IOException
 	{
+		migrateConfig();
 		data = RoadmapData.load(gson);
 		advisor = new Advisor(data);
 		priceIds = advisor.priceIds();
@@ -196,6 +210,22 @@ public class CodexGearRoadmapPlugin extends Plugin
 		});
 	}
 
+	/** The old on-task switch becomes the slayer task setting; only an explicit "off" needs carrying over. */
+	private void migrateConfig()
+	{
+		String old = configManager.getConfiguration(CodexGearRoadmapConfig.GROUP, CodexGearRoadmapConfig.OLD_ON_TASK);
+		if (old == null)
+		{
+			return;
+		}
+		if ("false".equals(old)
+			&& configManager.getConfiguration(CodexGearRoadmapConfig.GROUP, CodexGearRoadmapConfig.SLAYER_TASK) == null)
+		{
+			configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, CodexGearRoadmapConfig.SLAYER_TASK, SlayerTask.Mode.NEVER);
+		}
+		configManager.unsetConfiguration(CodexGearRoadmapConfig.GROUP, CodexGearRoadmapConfig.OLD_ON_TASK);
+	}
+
 	@Override
 	protected void shutDown()
 	{
@@ -216,6 +246,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		inventoryCoins = 0;
 		ancients = null;
 		lastRoadmap = null;
+		lastReport = null;
+		realLevels.clear();
 		survey = null;
 		claimed.clear();
 	}
@@ -270,28 +302,40 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			return;
 		}
+		// The first sight of the bank is not a claim: everything in it was simply unknown before.
+		boolean bankKnown = bank != null;
 		Set<Integer> before = ownedIds();
 		long coinsBefore = coins();
 		readContainer(id);
 		Set<Integer> after = ownedIds();
-		if (!after.equals(before) || coins() != coinsBefore)
+		if (!after.equals(before))
 		{
 			dirty = true;
+			if (bankKnown)
+			{
+				checkClaims(before, after);
+			}
 		}
-		if (bank != null && !after.equals(before))
+		else if (coins() != coinsBefore)
 		{
-			checkClaims(before, after);
+			// Coins only move the "in reach" line, which does not need a new plan.
+			coinsDirty = true;
 		}
 	}
 
 	@Subscribe
 	public void onStatChanged(StatChanged event)
 	{
+		// Experience drops fire this on every hit; only a new real level changes the plan.
 		for (Skill skill : SKILLS)
 		{
 			if (skill == event.getSkill())
 			{
-				dirty = true;
+				Integer previous = realLevels.put(skill, event.getLevel());
+				if (previous == null || previous != event.getLevel())
+				{
+					dirty = true;
+				}
 				return;
 			}
 		}
@@ -300,7 +344,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event)
 	{
-		if (UNLOCK_VARBITS.contains(event.getVarbitId()))
+		if (UNLOCK_VARBITS.contains(event.getVarbitId()) || event.getVarbitId() == -1 && TASK_VARPS.contains(event.getVarpId()))
 		{
 			dirty = true;
 		}
@@ -321,8 +365,21 @@ public class CodexGearRoadmapPlugin extends Plugin
 		if (dirty && ticksSinceAnalysis >= ANALYSE_GAP_TICKS)
 		{
 			dirty = false;
+			coinsDirty = false;
 			ticksSinceAnalysis = 0;
 			analyse();
+		}
+		else if (coinsDirty && !dirty)
+		{
+			coinsDirty = false;
+			Report report = lastReport;
+			if (report != null && report.getRoadmap() != null)
+			{
+				Report recoined = report.withRoadmap(report.getRoadmap().withCoins(coins()));
+				lastReport = recoined;
+				lastRoadmap = recoined.getRoadmap();
+				publish(recoined, lastName);
+			}
 		}
 	}
 
@@ -348,16 +405,25 @@ public class CodexGearRoadmapPlugin extends Plugin
 		else if (id == InventoryID.INV)
 		{
 			inventory = items;
-			inventoryCoins = container.count(ItemID.COINS);
+			inventoryCoins = coinsIn(container);
 		}
 		else
 		{
 			Bank seen = new Bank();
 			seen.items = items;
-			seen.coins = container.count(ItemID.COINS);
-			bank = seen;
-			saveBank();
+			seen.coins = coinsIn(container);
+			if (bank == null || !bank.items.equals(seen.items) || bank.coins != seen.coins)
+			{
+				bank = seen;
+				saveBank();
+			}
 		}
+	}
+
+	/** Coins and platinum tokens, each token worth a thousand. */
+	private static long coinsIn(ItemContainer container)
+	{
+		return container.count(ItemID.COINS) + 1000L * container.count(ItemID.PLATINUM);
 	}
 
 	private Set<Integer> ownedIds()
@@ -499,7 +565,51 @@ public class CodexGearRoadmapPlugin extends Plugin
 		boolean piety = client.getVarbitValue(VarbitID.KR_KNIGHTWAVES_STATE) >= KNIGHT_WAVES_DONE;
 		boolean rigour = client.getVarbitValue(VarbitID.PRAYER_RIGOUR_UNLOCKED) == 1;
 		boolean augury = client.getVarbitValue(VarbitID.PRAYER_AUGURY_UNLOCKED) == 1;
-		return new Fighter(levels, config.boost(), config.prayers(), piety, rigour, augury, ancients, config.onTask());
+		boolean deadeye = client.getVarbitValue(VarbitID.PRAYER_DEADEYE_UNLOCKED) == 1;
+		boolean vigour = client.getVarbitValue(VarbitID.PRAYER_MYSTIC_VIGOUR_UNLOCKED) == 1;
+		boolean kandarin = client.getVarbitValue(VarbitID.KANDARIN_DIARY_HARD_COMPLETE) == 1;
+		SlayerTask task = SlayerTask.of(config.slayerTask(), currentTask());
+		return new Fighter(levels, config.boost(), config.prayers(), piety, rigour, augury, ancients, task)
+			.withUnlocks(deadeye, vigour, kandarin);
+	}
+
+	/** The name of the player's current slayer task, as the slayer helper shows it, or null. */
+	private String currentTask()
+	{
+		if (client.getVarpValue(VarPlayerID.SLAYER_COUNT) <= 0)
+		{
+			return null;
+		}
+		try
+		{
+			int taskId = client.getVarpValue(VarPlayerID.SLAYER_TARGET);
+			int row;
+			if (taskId == BOSS_TASK)
+			{
+				List<Integer> rows = client.getDBRowsByValue(DBTableID.SlayerTaskSublist.ID,
+					DBTableID.SlayerTaskSublist.COL_TASK_SUBTABLE_ID, 0, client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID));
+				if (rows.isEmpty())
+				{
+					return null;
+				}
+				row = (Integer) client.getDBTableField(rows.get(0), DBTableID.SlayerTaskSublist.COL_TASK, 0)[0];
+			}
+			else
+			{
+				List<Integer> rows = client.getDBRowsByValue(DBTableID.SlayerTask.ID, DBTableID.SlayerTask.COL_ID, 0, taskId);
+				if (rows.isEmpty())
+				{
+					return null;
+				}
+				row = rows.get(0);
+			}
+			return (String) client.getDBTableField(row, DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
+		}
+		catch (RuntimeException e)
+		{
+			log.debug("Could not read the slayer task", e);
+			return null;
+		}
 	}
 
 	private void analyse()
@@ -531,9 +641,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 		long coins = coins();
 		boolean bankSeen = bank != null;
+		boolean ironman = client.getVarbitValue(VarbitID.IRONMAN) > 0;
+		boolean seasonal = client.getWorldType().contains(WorldType.SEASONAL);
 		String boosts = config.boost().toString();
-		String surveyKey = new TreeSet<>(ids) + "|" + fighter.getLevels() + "|" + config.boost() + config.prayers()
-			+ config.onTask() + fighter.isAncients() + unlocks();
+		String task = fighter.getTask().getTask();
+		String surveyKey = new TreeSet<>(ids) + "|" + fighter.getLevels() + "|" + fighter.assumptions() + unlocks();
 		Player player = client.getLocalPlayer();
 		String name = player == null ? null : player.getName();
 		Target aim = target;
@@ -552,7 +664,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 				{
 					survey = cached;
 					lastRoadmap = map;
-					publish(new Report(true, map, cached.rows, boosts, owned.size(), bankSeen), name);
+					Report report = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
+						.withAccount(ironman, seasonal, task);
+					lastReport = report;
+					lastName = name;
+					publish(report, name);
 				}
 			}
 			catch (RuntimeException e)
