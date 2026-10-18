@@ -91,10 +91,6 @@ final class UpgradeRow
 		JPanel middle = new JPanel(new BorderLayout(4, 0));
 		middle.setOpaque(false);
 		middle.add(Ui.label(Format.gain(o.getGain()) + " DPS  " + Format.share(o.getGainShare()), Theme.small(), gainColor), BorderLayout.WEST);
-		if (mode == Mode.STEP && affordable)
-		{
-			middle.add(Ui.label("In reach", Theme.small(), Theme.TEAL), BorderLayout.EAST);
-		}
 		middle.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		text.add(middle);
 
@@ -114,7 +110,7 @@ final class UpgradeRow
 				detail = o.isAmmo() ? "Price per 1,000" : Format.value(o.getCost(), o.getGain());
 				if (kind != null && before != null && kind != before)
 				{
-					detail = "To " + kind.toString().toLowerCase() + (detail.isEmpty() ? "" : "  ·  " + detail);
+					detail = "To " + kind.toString().toLowerCase() + (detail.isEmpty() ? "" : " · " + detail);
 					detailColor = Theme.mix(Theme.TEXT_MUTED, tint, 0.6);
 				}
 		}

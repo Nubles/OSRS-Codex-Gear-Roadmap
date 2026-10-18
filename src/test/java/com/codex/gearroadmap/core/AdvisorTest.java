@@ -86,6 +86,22 @@ public class AdvisorTest
 	}
 
 	@Test
+	public void newCoinsMoveOnlyTheReach()
+	{
+		Roadmap map = advisor.plan(Fixtures.midGame(data), Fixtures.midGameFighter(), data.target("Vorkath"),
+			Fixtures.prices(data), 0);
+		assertFalse(map.getPath().get(0).isAffordable());
+		long second = map.getPath().get(1).getSpent();
+		Roadmap richer = map.withCoins(second);
+		assertEquals(map.getPath().size(), richer.getPath().size());
+		assertTrue(richer.getPath().get(0).isAffordable());
+		assertTrue(richer.getPath().get(1).isAffordable());
+		assertFalse(richer.getPath().get(2).isAffordable());
+		assertEquals(map.getLeaps(), richer.getLeaps());
+		assertEquals(second, richer.getCoins());
+	}
+
+	@Test
 	public void ownedUpgradesAreNotSuggested()
 	{
 		Set<Gear> owned = Fixtures.midGame(data);

@@ -131,9 +131,11 @@ final class RoadmapView
 		top.add(new CodexButton("Change", false, openTargets), BorderLayout.EAST);
 		card.add(top, BorderLayout.NORTH);
 		String line = r.getKind() == null ? "No way to hurt it yet"
-			: r.getKind() + "  ·  max hit " + r.getMaxHit() + "  ·  " + Format.percent(r.getAccuracy()) + " accuracy";
+			: r.getKind() + "  ·  max hit " + r.getMaxHit() + "  ·  " + Format.percent(r.getAccuracy()) + " acc";
 		JLabel sub = Ui.label(line, Theme.small(), Theme.TEXT_MUTED);
 		sub.setBorder(new EmptyBorder(3, 0, 0, 0));
+		sub.setToolTipText(r.getKind() == null ? null : "Your best setup hits up to " + r.getMaxHit() + " and lands "
+			+ Format.percent(r.getAccuracy()) + " of its attacks");
 		card.add(sub, BorderLayout.SOUTH);
 		return card;
 	}
