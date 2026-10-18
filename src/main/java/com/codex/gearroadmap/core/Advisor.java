@@ -83,6 +83,7 @@ public final class Advisor
 		List<Roadmap.Option> free = new ArrayList<>();
 		List<Roadmap.Option> locked = new ArrayList<>();
 		List<Roadmap.Option> bought = new ArrayList<>();
+		Map<Roadmap.Option, Integer> shortBy = new HashMap<>();
 		for (Candidate c : candidates)
 		{
 			long cost = cost(c, owned, prices);
@@ -102,6 +103,7 @@ public final class Advisor
 			if (missing != null)
 			{
 				locked.add(option);
+				shortBy.put(option, fighter.shortfall(c.requirements));
 			}
 			else if (cost == 0)
 			{
@@ -114,7 +116,12 @@ public final class Advisor
 		}
 		Comparator<Roadmap.Option> byGain = Comparator.comparingDouble((Roadmap.Option o) -> -o.getGain());
 		free.sort(byGain);
-		locked.sort(byGain);
+		// One reward of the same task in one slot is enough: the dragon gloves need not stand
+		// beside the barrows gloves that the same quest gives later.
+		Set<String> rewards = new HashSet<>();
+		free.removeIf(o -> o.getEarn() != null && !rewards.add(o.getEarn() + "/" + o.getIcon().getSlot()));
+		// What a few more levels unlock comes before a dream forty levels away.
+		locked.sort(Comparator.comparingDouble((Roadmap.Option o) -> -o.getGain() / (1 + shortBy.get(o) / 10.0)));
 
 		List<Roadmap.Step> path = walk(owned, fighter, target, prices, coins, start, candidates);
 		Set<String> onPath = new HashSet<>();

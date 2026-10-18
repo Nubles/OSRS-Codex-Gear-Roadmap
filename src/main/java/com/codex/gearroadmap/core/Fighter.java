@@ -155,6 +155,17 @@ public final class Fighter
 		return null;
 	}
 
+	/** How many levels in all the fighter is short of these requirements. */
+	public int shortfall(Map<String, Integer> requirements)
+	{
+		int total = 0;
+		for (Map.Entry<String, Integer> r : requirements.entrySet())
+		{
+			total += Math.max(0, r.getValue() - level(r.getKey()));
+		}
+		return total;
+	}
+
 	int attack()
 	{
 		return melee(level("Attack"));

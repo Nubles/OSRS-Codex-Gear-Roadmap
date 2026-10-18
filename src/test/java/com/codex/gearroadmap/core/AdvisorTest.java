@@ -6,6 +6,10 @@ import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
 import com.google.gson.Gson;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -29,7 +33,7 @@ public class AdvisorTest
 	@Test
 	public void everyCatalogueItemResolves()
 	{
-		assertEquals(172, data.catalogue().size());
+		assertEquals(199, data.catalogue().size());
 		assertTrue(data.targets().size() > 60);
 	}
 
@@ -83,6 +87,32 @@ public class AdvisorTest
 		assertEquals(2, first.getPieces().size());
 		assertTrue(first.getName(), first.getName().contains(" + "));
 		assertTrue(first.getGain() > 0.1);
+	}
+
+	@Test
+	public void aNewAccountGetsAStarterRoad()
+	{
+		Map<String, Integer> levels = new HashMap<>();
+		for (String skill : new String[]{"Attack", "Strength", "Defence", "Ranged", "Magic", "Prayer", "Agility"})
+		{
+			levels.put(skill, 30);
+		}
+		levels.put("Hitpoints", 30);
+		Fighter fresh = new Fighter(levels, Fighter.Boost.NONE, true, true, false, false, false, false);
+		Roadmap map = advisor.plan(new HashSet<>(), fresh, data.target("Hill Giant"), Fixtures.prices(data), 0);
+		assertFalse(map.getPath().isEmpty());
+		assertTrue(map.getPath().get(0).getOption().getCost() < 10_000);
+		boolean dragonGloves = false;
+		boolean barrowsGloves = false;
+		for (Roadmap.Option o : map.getFree())
+		{
+			dragonGloves |= o.getName().equals("Dragon gloves");
+			barrowsGloves |= o.getName().equals("Barrows gloves");
+		}
+		assertTrue(barrowsGloves);
+		assertFalse("one Recipe for Disaster reward is enough", dragonGloves);
+		Map<String, Integer> fang = Collections.singletonMap("Attack", 82);
+		assertEquals(52, fresh.shortfall(fang));
 	}
 
 	@Test
