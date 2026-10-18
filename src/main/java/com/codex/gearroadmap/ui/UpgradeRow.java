@@ -57,13 +57,47 @@ final class UpgradeRow
 		lead.add(badge, BorderLayout.CENTER);
 		card.add(lead, BorderLayout.WEST);
 
+		Color priceColor = affordable ? Theme.TEAL : Theme.GOLD;
+		boolean priced = mode == Mode.STEP || mode == Mode.LEAP || mode == Mode.LOCKED && o.getCost() > 0;
 		JPanel text = new JPanel();
 		text.setOpaque(false);
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
-		JLabel name = Ui.label(o.getName(), Theme.body(), mode == Mode.LOCKED ? Theme.TEXT_MUTED : Theme.TEXT);
-		text.add(name);
-		text.add(Ui.label(Format.gain(o.getGain()) + " DPS   " + Format.share(o.getGainShare()), Theme.small(),
-			mode == Mode.LOCKED ? Theme.mix(tint, Theme.TEXT_FAINT, 0.4) : tint));
+
+		// The name gets the whole first line, with the price at its end, so it is rarely cut short.
+		JPanel top = new JPanel(new BorderLayout(4, 0));
+		top.setOpaque(false);
+		// A pair bought together ("A + B") names the first on top and the second beneath it.
+		int plus = o.getName().indexOf(" + ");
+		String title = plus < 0 ? o.getName() : o.getName().substring(0, plus);
+		JLabel name = Ui.label(title, Theme.body(), mode == Mode.LOCKED ? Theme.TEXT_MUTED : Theme.TEXT);
+		name.setMinimumSize(new Dimension(10, 10));
+		name.setPreferredSize(new Dimension(10, name.getPreferredSize().height));
+		top.add(name, BorderLayout.CENTER);
+		if (priced)
+		{
+			top.add(Ui.label(Format.coins(o.getCost()), Theme.body(), priceColor), BorderLayout.EAST);
+		}
+		top.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+		text.add(top);
+		if (plus >= 0)
+		{
+			JLabel second = Ui.label("+ " + o.getName().substring(plus + 3), Theme.body(), name.getForeground());
+			second.setToolTipText("Neither does anything alone: together they reach the next max hit");
+			second.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+			text.add(second);
+		}
+
+		Color gainColor = mode == Mode.LOCKED ? Theme.mix(tint, Theme.TEXT_FAINT, 0.4) : tint;
+		JPanel middle = new JPanel(new BorderLayout(4, 0));
+		middle.setOpaque(false);
+		middle.add(Ui.label(Format.gain(o.getGain()) + " DPS  " + Format.share(o.getGainShare()), Theme.small(), gainColor), BorderLayout.WEST);
+		if (mode == Mode.STEP && affordable)
+		{
+			middle.add(Ui.label("In reach", Theme.small(), Theme.TEAL), BorderLayout.EAST);
+		}
+		middle.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+		text.add(middle);
+
 		String detail;
 		Color detailColor = Theme.TEXT_MUTED;
 		switch (mode)
@@ -77,44 +111,30 @@ final class UpgradeRow
 				detailColor = Theme.EMBER;
 				break;
 			default:
-				detail = Format.value(o.getCost(), o.getGain());
+				detail = o.isAmmo() ? "Price per 1,000" : Format.value(o.getCost(), o.getGain());
 				if (kind != null && before != null && kind != before)
 				{
-					detail = "Switch to " + kind;
+					detail = "To " + kind.toString().toLowerCase() + (detail.isEmpty() ? "" : "  ·  " + detail);
 					detailColor = Theme.mix(Theme.TEXT_MUTED, tint, 0.6);
-				}
-				else if (o.isAmmo())
-				{
-					detail = "Price per 1,000";
 				}
 		}
 		if (detail != null && !detail.isEmpty())
 		{
 			JLabel sub = Ui.label(detail, Theme.small(), detailColor);
 			sub.setToolTipText(detail);
+			sub.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 			text.add(sub);
 		}
 		text.setMinimumSize(new Dimension(10, 10));
 		text.setPreferredSize(new Dimension(10, text.getPreferredSize().height));
 		card.add(text, BorderLayout.CENTER);
 
-		if (mode == Mode.STEP || mode == Mode.LEAP || mode == Mode.LOCKED && o.getCost() > 0)
-		{
-			JPanel trail = new JPanel();
-			trail.setOpaque(false);
-			trail.setLayout(new BoxLayout(trail, BoxLayout.Y_AXIS));
-			JLabel price = Ui.label(Format.coins(o.getCost()), Theme.body(), affordable ? Theme.GOLD_BRIGHT : Theme.GOLD);
-			price.setAlignmentX(JComponent.RIGHT_ALIGNMENT);
-			trail.add(price);
-			if (mode == Mode.STEP && affordable)
-			{
-				Pill pill = new Pill("In reach", Theme.TEAL);
-				pill.setAlignmentX(JComponent.RIGHT_ALIGNMENT);
-				trail.add(pill);
-			}
-			card.add(trail, BorderLayout.EAST);
-		}
 		StringBuilder tip = new StringBuilder("<html><b>").append(Ui.escape(o.getName())).append("</b>");
+		if (priced)
+		{
+			tip.append("<br>").append(Format.coins(o.getCost())).append(o.isAmmo() ? " per 1,000" : "")
+				.append(mode == Mode.STEP ? affordable ? ", your coins cover the road to here" : ", past what your coins cover" : "");
+		}
 		if (o.getNote() != null)
 		{
 			tip.append("<br>").append(Ui.escape(o.getNote()));

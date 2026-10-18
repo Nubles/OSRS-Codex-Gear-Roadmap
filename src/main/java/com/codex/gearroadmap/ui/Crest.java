@@ -93,7 +93,16 @@ public class Crest extends JPanel
 		dial.set(Format.dps(now.getDps()), end <= 0 ? 0 : now.getDps() / end, end <= 0 ? 0 : affordable / end, color, true);
 		kill.set(Format.time(now.secondsToKill(map.getTarget())), Theme.TEXT);
 		road.set(map.getPath().isEmpty() ? "Complete" : Format.share(end / Math.max(0.01, now.getDps()) - 1), Theme.TEAL);
-		coins.set(Format.coins(map.getCoins()).replace("Free", "0"), Theme.GOLD);
+		if (report.isIronman())
+		{
+			coins.label("Road cost");
+			coins.set(map.getPath().isEmpty() ? "-" : Format.coins(map.getPath().get(map.getPath().size() - 1).getSpent()), Theme.GOLD);
+		}
+		else
+		{
+			coins.label("Coins");
+			coins.set(Format.coins(map.getCoins()).replace("Free", "0"), Theme.GOLD);
+		}
 		glow = Theme.mix(Theme.GOLD_DIM, color, 0.4);
 		repaint();
 	}
@@ -128,14 +137,21 @@ public class Crest extends JPanel
 	private static final class Ledger extends JPanel
 	{
 		private final JLabel value = Ui.label("-", Theme.small(), Theme.TEXT);
+		private final JLabel name;
 
 		Ledger(String label)
 		{
 			super(new BorderLayout());
 			setOpaque(false);
-			add(Ui.label(label, Theme.small(), Theme.TEXT_MUTED), BorderLayout.WEST);
+			name = Ui.label(label, Theme.small(), Theme.TEXT_MUTED);
+			add(name, BorderLayout.WEST);
 			add(value, BorderLayout.EAST);
 			setPreferredSize(new Dimension(10, 15));
+		}
+
+		void label(String text)
+		{
+			name.setText(text);
 		}
 
 		void set(String text, Color color)

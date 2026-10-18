@@ -90,6 +90,12 @@ final class LoadoutView
 		stack.add(Rows.check(Mark.Kind.NOTE, styleLine(r), r.getPrayer() == null ? "No prayer" : r.getPrayer(), null));
 		stack.add(Rows.check(Mark.Kind.NOTE, report.getBoosts() == null ? "No boosts" : report.getBoosts(),
 			pieces(plan.getLoadout()) + " pieces worn", null));
+		Boolean slayer = report.getSlayer();
+		if (slayer != null)
+		{
+			stack.add(Rows.check(slayer ? Mark.Kind.GOOD : Mark.Kind.NOTE, slayer ? "On task" : "Off task",
+				slayer ? "Slayer helmet bonus counts" : "No slayer helmet bonus", null));
+		}
 		if (preview == null)
 		{
 			stack.add(Rows.note("Built from the " + report.getOwned() + " pieces of combat gear you own. Click any upgrade on the Roadmap to see the loadout it makes.", 190));

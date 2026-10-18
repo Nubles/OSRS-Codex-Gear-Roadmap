@@ -4,7 +4,9 @@ import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.util.function.Consumer;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
@@ -79,9 +81,37 @@ final class RoadmapView
 				stack.add(UpgradeRow.build(o, UpgradeRow.Mode.LOCKED, 0, false, now, icons, () -> preview.accept(o)));
 			}
 		}
-		stack.add(Rows.note("Prices are live Grand Exchange prices. Ammunition is priced per 1,000. Assumes "
-			+ (report.getBoosts() == null ? "no boosts" : report.getBoosts().toLowerCase()) + " and your best unlocked prayers.", 190));
+		stack.add(Rows.note(footnote(report), 190));
 		return stack;
+	}
+
+	/** What the numbers assume, in a sentence or three. */
+	static String footnote(Report report)
+	{
+		StringBuilder text = new StringBuilder();
+		if (report.isIronman())
+		{
+			text.append("As an ironman you cannot buy, so Grand Exchange prices here stand for how hard each item is to get. ");
+		}
+		else if (report.isSeasonal())
+		{
+			text.append("Prices are from the main game's Grand Exchange, not this world's. ");
+		}
+		else
+		{
+			text.append("Prices are live Grand Exchange prices. ");
+		}
+		text.append("Ammunition is priced per 1,000. Assumes ")
+			.append(report.getBoosts() == null ? "no boosts" : report.getBoosts().toLowerCase())
+			.append(" and your best unlocked prayers.");
+		Boolean slayer = report.getSlayer();
+		if (slayer != null)
+		{
+			String name = report.getRoadmap() == null ? "this target" : report.getRoadmap().getTarget().getName();
+			text.append(slayer ? " Counts the slayer helmet bonus against " + name + "."
+				: " No slayer helmet bonus against " + name + " without a task for it.");
+		}
+		return text.toString();
 	}
 
 	private static Card targetCard(Report report, Runnable openTargets)
@@ -91,17 +121,20 @@ final class RoadmapView
 		Card card = new Card(new BorderLayout(8, 0));
 		card.setBorder(new EmptyBorder(7, 10, 7, 10));
 		card.accent(Theme.kind(r.getKind()));
-		JPanel text = new JPanel(new BorderLayout());
-		text.setOpaque(false);
-		text.add(Ui.label(map.getTarget().getName(), Theme.title(), Theme.GOLD_BRIGHT), BorderLayout.NORTH);
+		// The name shares its line with the button; the fight's numbers get the full width below.
+		JPanel top = new JPanel(new BorderLayout(6, 0));
+		top.setOpaque(false);
+		JLabel name = Ui.label(map.getTarget().getName(), Theme.title(), Theme.GOLD_BRIGHT);
+		name.setMinimumSize(new Dimension(10, 10));
+		name.setPreferredSize(new Dimension(10, name.getPreferredSize().height));
+		top.add(name, BorderLayout.CENTER);
+		top.add(new CodexButton("Change", false, openTargets), BorderLayout.EAST);
+		card.add(top, BorderLayout.NORTH);
 		String line = r.getKind() == null ? "No way to hurt it yet"
 			: r.getKind() + "  ·  max hit " + r.getMaxHit() + "  ·  " + Format.percent(r.getAccuracy()) + " accuracy";
-		text.add(Ui.label(line, Theme.small(), Theme.TEXT_MUTED), BorderLayout.SOUTH);
-		card.add(text, BorderLayout.CENTER);
-		JPanel trail = new JPanel(new BorderLayout());
-		trail.setOpaque(false);
-		trail.add(new CodexButton("Change", false, openTargets), BorderLayout.NORTH);
-		card.add(trail, BorderLayout.EAST);
+		JLabel sub = Ui.label(line, Theme.small(), Theme.TEXT_MUTED);
+		sub.setBorder(new EmptyBorder(3, 0, 0, 0));
+		card.add(sub, BorderLayout.SOUTH);
 		return card;
 	}
 }

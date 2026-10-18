@@ -375,7 +375,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			Report report = lastReport;
 			if (report != null && report.getRoadmap() != null)
 			{
-				Report recoined = report.withRoadmap(report.getRoadmap().withCoins(coins()));
+				Report recoined = report.withRoadmap(report.getRoadmap().withCoins(report.isIronman() ? 0 : coins()));
 				lastReport = recoined;
 				lastRoadmap = recoined.getRoadmap();
 				publish(recoined, lastName);
@@ -639,12 +639,14 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			target = data.targets().get(0);
 		}
-		long coins = coins();
-		boolean bankSeen = bank != null;
 		boolean ironman = client.getVarbitValue(VarbitID.IRONMAN) > 0;
+		// Ironmen cannot buy, so their coins never put an upgrade in reach.
+		long coins = ironman ? 0 : coins();
+		boolean bankSeen = bank != null;
 		boolean seasonal = client.getWorldType().contains(WorldType.SEASONAL);
 		String boosts = config.boost().toString();
 		String task = fighter.getTask().getTask();
+		Boolean slayer = target.isSlayer() ? fighter.onTaskFor(target) : null;
 		String surveyKey = new TreeSet<>(ids) + "|" + fighter.getLevels() + "|" + fighter.assumptions() + unlocks();
 		Player player = client.getLocalPlayer();
 		String name = player == null ? null : player.getName();
@@ -665,7 +667,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 					survey = cached;
 					lastRoadmap = map;
 					Report report = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
-						.withAccount(ironman, seasonal, task);
+						.withAccount(ironman, seasonal, task, slayer);
 					lastReport = report;
 					lastName = name;
 					publish(report, name);
