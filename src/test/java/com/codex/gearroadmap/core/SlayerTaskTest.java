@@ -41,6 +41,15 @@ public class SlayerTaskTest
 	}
 
 	@Test
+	public void crabsTaskCoversTrainingCrabs()
+	{
+		// RuneLite's Slayer task list counts every crab species toward a Crabs task.
+		assertTrue(SlayerTask.of(SlayerTask.Mode.SMART, "Crabs").covers(data.target("Sand Crab")));
+		assertTrue(SlayerTask.of(SlayerTask.Mode.SMART, "Crabs").covers(data.target("Ammonite Crab")));
+		assertTrue(SlayerTask.of(SlayerTask.Mode.SMART, "Crabs").covers(data.target("Rock Crab")));
+	}
+
+	@Test
 	public void modesOverride()
 	{
 		assertTrue(SlayerTask.ALWAYS.covers(data.target("Vorkath")));

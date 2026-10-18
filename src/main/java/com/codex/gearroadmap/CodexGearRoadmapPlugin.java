@@ -59,6 +59,7 @@ import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
@@ -85,7 +86,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private static final Set<Integer> UNLOCK_VARBITS = new HashSet<>(Arrays.asList(
 		VarbitID.PRAYER_RIGOUR_UNLOCKED, VarbitID.PRAYER_AUGURY_UNLOCKED, VarbitID.KR_KNIGHTWAVES_STATE,
 		VarbitID.PRAYER_DEADEYE_UNLOCKED, VarbitID.PRAYER_MYSTIC_VIGOUR_UNLOCKED, VarbitID.KANDARIN_DIARY_HARD_COMPLETE,
-		VarbitID.SLAYER_TARGET_BOSSID, VarbitID.IRONMAN));
+		VarbitID.IRONMAN));
 	private static final Set<Integer> TASK_VARPS = new HashSet<>(Arrays.asList(VarPlayerID.SLAYER_COUNT, VarPlayerID.SLAYER_TARGET));
 	/** The slayer task id that stands for "a boss", whose name is then looked up from the boss id. */
 	private static final int BOSS_TASK = 98;
@@ -143,6 +144,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private boolean coinsDirty;
 	private int ticksSinceAnalysis;
 	private final Map<Skill, Integer> realLevels = new HashMap<>();
+	/** Which task the plan was made for; the kill count falls on every kill and must not re-plan each time. */
+	private String taskKey;
+	/** The analysis whose report was last published, so a coin update never lands on a road about to be replaced. */
+	private volatile int publishedTicket;
 
 	/** What the latest roadmap was, so a claimed upgrade can be named; written on the executor. */
 	private volatile Roadmap lastRoadmap;
@@ -248,6 +253,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		lastRoadmap = null;
 		lastReport = null;
 		realLevels.clear();
+		taskKey = null;
 		survey = null;
 		claimed.clear();
 	}
@@ -344,10 +350,31 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event)
 	{
-		if (UNLOCK_VARBITS.contains(event.getVarbitId()) || event.getVarbitId() == -1 && TASK_VARPS.contains(event.getVarpId()))
+		if (UNLOCK_VARBITS.contains(event.getVarbitId()))
 		{
 			dirty = true;
 		}
+		else if (event.getVarbitId() == VarbitID.SLAYER_TARGET_BOSSID
+			|| event.getVarbitId() == -1 && TASK_VARPS.contains(event.getVarpId()))
+		{
+			// Only a new task, or the end of one, changes the plan; the count itself does not.
+			boolean onTask = client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0;
+			String key = onTask ? client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":"
+				+ client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID) : "";
+			if (!key.equals(taskKey))
+			{
+				taskKey = key;
+				dirty = true;
+			}
+		}
+	}
+
+	@Subscribe
+	public void onProfileChanged(ProfileChanged event)
+	{
+		// Switching to another RuneLite profile does not restart the plugin, so that profile's old setting is carried over here.
+		migrateConfig();
+		dirty = true;
 	}
 
 	@Subscribe
@@ -369,7 +396,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			ticksSinceAnalysis = 0;
 			analyse();
 		}
-		else if (coinsDirty && !dirty)
+		else if (coinsDirty && !dirty && publishedTicket == generation.get())
 		{
 			coinsDirty = false;
 			Report report = lastReport;
@@ -670,6 +697,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 						.withAccount(ironman, seasonal, task, slayer);
 					lastReport = report;
 					lastName = name;
+					publishedTicket = ticket;
 					publish(report, name);
 				}
 			}

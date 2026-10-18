@@ -75,6 +75,9 @@ public final class SlayerTask
 		cover("adamant dragon", "metal dragons");
 		cover("brutal black dragon", "black dragons");
 		cover("kalphite soldier", "kalphites");
+		cover("ammonite crab", "crabs");
+		cover("sand crab", "crabs");
+		cover("rock crab", "crabs");
 	}
 
 	private final Mode mode;
