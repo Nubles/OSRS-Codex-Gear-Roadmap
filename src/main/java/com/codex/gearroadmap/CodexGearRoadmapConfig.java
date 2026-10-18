@@ -1,6 +1,7 @@
 package com.codex.gearroadmap;
 
 import com.codex.gearroadmap.core.Fighter;
+import com.codex.gearroadmap.core.SlayerTask;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
@@ -13,6 +14,9 @@ public interface CodexGearRoadmapConfig extends Config
 {
 	String GROUP = "codexgearroadmap";
 	String TARGET = "target";
+	String SLAYER_TASK = "slayerTask";
+	/** The old on-task switch, read once to carry a "never" choice over to the slayer task setting. */
+	String OLD_ON_TASK = "onTask";
 
 	@ConfigSection(
 		name = "Fighting",
@@ -65,15 +69,16 @@ public interface CodexGearRoadmapConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "onTask",
-		name = "On a slayer task",
-		description = "Count the slayer helmet and black mask bonus against slayer monsters",
+		keyName = SLAYER_TASK,
+		name = "Slayer helmet bonus",
+		description = "When to count the black mask and slayer helmet bonus. By default it counts against Slayer"
+			+ " monsters, and against a boss only while your current task covers it",
 		position = 3,
 		section = fighting
 	)
-	default boolean onTask()
+	default SlayerTask.Mode slayerTask()
 	{
-		return true;
+		return SlayerTask.Mode.SMART;
 	}
 
 	@ConfigItem(

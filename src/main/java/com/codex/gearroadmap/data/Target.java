@@ -28,6 +28,8 @@ public final class Target
 	private boolean slayer;
 	private List<Object> weak;
 	private List<String> only;
+	private boolean wild;
+	private int fa;
 
 	public Target()
 	{
@@ -105,6 +107,34 @@ public final class Target
 	public boolean isSlayer()
 	{
 		return slayer;
+	}
+
+	/** Whether it is fought in the Wilderness, where revenant weapons are stronger. */
+	public boolean isWilderness()
+	{
+		return wild;
+	}
+
+	/** Armour taken off every melee and ranged hit that lands, or added when below zero. */
+	public int getFlatArmour()
+	{
+		return fa;
+	}
+
+	/** Percent of a demonbane weapon's bonus this demon takes: Duke Sucellus resists, Yama is weak to it. */
+	public int demonbaneVulnerability()
+	{
+		if ("Duke Sucellus".equals(name))
+		{
+			return 70;
+		}
+		return "Yama".equals(name) ? 120 : 100;
+	}
+
+	/** Bosses, Slayer creatures or training spots. */
+	public boolean isBoss()
+	{
+		return "Boss".equals(group);
 	}
 
 	/** The element this monster takes extra magic damage from, or null. */

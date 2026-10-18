@@ -5,6 +5,7 @@ import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -26,6 +27,8 @@ public final class Advisor
 	public static final int STEPS = 8;
 	public static final int AMMO_STACK = 1000;
 	private static final int SIDE_LIST = 4;
+	/** How many of the cheapest do-nothing-alone pieces the road tries in pairs. */
+	private static final int PAIR_POOL = 10;
 
 	/** Grand Exchange prices: 0 when an item has none. */
 	public interface Prices
@@ -40,6 +43,19 @@ public final class Advisor
 		{"Elite void ranger set", "Pest Control and the Western Provinces hard diary", "void ranger helm", "elite void top", "elite void robe", "void knight gloves"},
 		{"Elite void mage set", "Pest Control and the Western Provinces hard diary", "void mage helm", "elite void top", "elite void robe", "void knight gloves"},
 		{"Obsidian armour", null, "obsidian helmet", "obsidian platebody", "obsidian platelegs"},
+	};
+
+	/** Earned upgrades that are pointless once a better form of the same item is owned. */
+	private static final String[][] SUPERSEDED = {
+		{"salve amulet", "salve amulet(i)", "salve amulet (e)", "salve amulet(ei)"},
+		{"salve amulet(i)", "salve amulet (e)", "salve amulet(ei)"},
+		{"salve amulet (e)", "salve amulet(ei)"},
+		{"black mask", "black mask (i)", "slayer helmet", "slayer helmet (i)"},
+		{"black mask (i)", "slayer helmet (i)"},
+		{"slayer helmet", "slayer helmet (i)"},
+		{"fire cape", "infernal cape"},
+		{"ava's accumulator", "ava's assembler", "dizana's quiver", "blessed dizana's quiver"},
+		{"saradomin cape", "imbued saradomin cape"},
 	};
 
 	private final RoadmapData data;
@@ -67,6 +83,7 @@ public final class Advisor
 		List<Roadmap.Option> free = new ArrayList<>();
 		List<Roadmap.Option> locked = new ArrayList<>();
 		List<Roadmap.Option> bought = new ArrayList<>();
+		Map<Roadmap.Option, Integer> shortBy = new HashMap<>();
 		for (Candidate c : candidates)
 		{
 			long cost = cost(c, owned, prices);
@@ -86,6 +103,7 @@ public final class Advisor
 			if (missing != null)
 			{
 				locked.add(option);
+				shortBy.put(option, fighter.shortfall(c.requirements));
 			}
 			else if (cost == 0)
 			{
@@ -98,7 +116,12 @@ public final class Advisor
 		}
 		Comparator<Roadmap.Option> byGain = Comparator.comparingDouble((Roadmap.Option o) -> -o.getGain());
 		free.sort(byGain);
-		locked.sort(byGain);
+		// One reward of the same task in one slot is enough: the dragon gloves need not stand
+		// beside the barrows gloves that the same quest gives later.
+		Set<String> rewards = new HashSet<>();
+		free.removeIf(o -> o.getEarn() != null && !rewards.add(o.getEarn() + "/" + o.getIcon().getSlot()));
+		// What a few more levels unlock comes before a dream forty levels away.
+		locked.sort(Comparator.comparingDouble((Roadmap.Option o) -> -o.getGain() / (1 + shortBy.get(o) / 10.0)));
 
 		List<Roadmap.Step> path = walk(owned, fighter, target, prices, coins, start, candidates);
 		Set<String> onPath = new HashSet<>();
@@ -134,6 +157,9 @@ public final class Advisor
 			Planner.Plan pickPlan = null;
 			long pickCost = 0;
 			double pickRatio = 0;
+			List<Candidate> pickParts = Collections.emptyList();
+			List<Candidate> flat = new ArrayList<>();
+			Map<Candidate, Long> flatCost = new HashMap<>();
 			for (Candidate c : candidates)
 			{
 				if (used.contains(c) || have.containsAll(c.pieces) || fighter.missing(c.requirements) != null)
@@ -149,6 +175,11 @@ public final class Advisor
 				double gain = after.dps() - base;
 				if (gain < threshold(base))
 				{
+					if (c.pieces.size() == 1 && !c.ammo && morePower(c.pieces.get(0), current.best()))
+					{
+						flat.add(c);
+						flatCost.put(c, cost);
+					}
 					continue;
 				}
 				double ratio = gain / cost;
@@ -160,11 +191,41 @@ public final class Advisor
 					pickRatio = ratio;
 				}
 			}
+			// A piece that adds strength or accuracy short of the next max hit does nothing alone,
+			// yet two of them together can cross it: try the cheapest such pieces in pairs.
+			flat.sort(Comparator.comparingLong(flatCost::get));
+			int pool = Math.min(flat.size(), PAIR_POOL);
+			for (int i = 0; i < pool; i++)
+			{
+				for (int j = i + 1; j < pool; j++)
+				{
+					Candidate a = flat.get(i);
+					Candidate b = flat.get(j);
+					if (a.pieces.get(0).getSlot() == b.pieces.get(0).getSlot())
+					{
+						continue;
+					}
+					long cost = flatCost.get(a) + flatCost.get(b);
+					List<Gear> both = new ArrayList<>(a.pieces);
+					both.addAll(b.pieces);
+					Planner.Plan after = planner.withAdded(current, have, both, fighter, target);
+					double gain = after.dps() - base;
+					if (gain >= threshold(base) && gain / cost > pickRatio)
+					{
+						pick = new Candidate(a.name + " + " + b.name, both, a.requirements, null, null, false);
+						pickPlan = after;
+						pickCost = cost;
+						pickRatio = gain / cost;
+						pickParts = Arrays.asList(a, b);
+					}
+				}
+			}
 			if (pick == null)
 			{
 				break;
 			}
 			used.add(pick);
+			used.addAll(pickParts);
 			have.addAll(pick.pieces);
 			Planner.Best next = planner.optimise(have, fighter, target);
 			// The fresh search is never worse than the quick one; keep whichever found more.
@@ -213,6 +274,31 @@ public final class Advisor
 			rows.add(new Roadmap.Survey(t, best.best()));
 		}
 		return rows;
+	}
+
+	/** Whether a piece has more damage than what the plan wears in its slot, for the plan's own style. */
+	static boolean morePower(Gear g, Planner.Plan plan)
+	{
+		Result.Kind kind = plan.getResult().getKind();
+		if (kind == null || g.getSlot() == Gear.WEAPON)
+		{
+			return false;
+		}
+		Gear worn = plan.getLoadout().get(g.getSlot());
+		return power(g, kind) > (worn == null ? 0 : power(worn, kind));
+	}
+
+	private static int power(Gear g, Result.Kind kind)
+	{
+		switch (kind)
+		{
+			case RANGED:
+				return g.rangedStrength();
+			case MAGIC:
+				return g.magicDamage();
+			default:
+				return g.strength();
+		}
 	}
 
 	private static double threshold(double base)
@@ -289,7 +375,7 @@ public final class Advisor
 		{
 			Gear g = entry.getGear();
 			if (owned.contains(g) || g.getName().startsWith("Void ") || g.getName().startsWith("Elite void")
-				|| g.key().startsWith("obsidian helmet"))
+				|| g.key().startsWith("obsidian helmet") || superseded(g, owned))
 			{
 				continue;
 			}
@@ -321,6 +407,26 @@ public final class Advisor
 			}
 		}
 		return list;
+	}
+
+	private boolean superseded(Gear g, Set<Gear> owned)
+	{
+		for (String[] row : SUPERSEDED)
+		{
+			if (!row[0].equals(g.key()))
+			{
+				continue;
+			}
+			for (int i = 1; i < row.length; i++)
+			{
+				Gear better = data.named(row[i]);
+				if (better != null && owned.contains(better))
+				{
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** Something the roadmap can recommend: one piece, or a set that only works whole. */

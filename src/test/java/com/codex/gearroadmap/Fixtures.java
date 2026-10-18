@@ -16,6 +16,12 @@ import java.util.Set;
 public final class Fixtures
 {
 	private static final Object[][] PRICES = {
+		{"Iron scimitar", 60}, {"Shortbow", 40}, {"Iron arrow", 5}, {"Steel scimitar", 100}, {"Black scimitar", 800}, {"Mithril scimitar", 400}, {"Adamant scimitar", 1_100},
+		{"Mithril full helm", 1_000}, {"Adamant full helm", 2_000}, {"Mithril platebody", 4_000}, {"Adamant platebody", 9_500},
+		{"Mithril platelegs", 2_000}, {"Adamant platelegs", 6_000}, {"Adamant kiteshield", 5_000}, {"Climbing boots", 900},
+		{"Oak shortbow", 50}, {"Willow shortbow", 60}, {"Maple shortbow", 80}, {"Steel arrow", 20}, {"Mithril arrow", 40},
+		{"Adamant arrow", 80}, {"Coif", 250}, {"Studded body", 700}, {"Studded chaps", 700}, {"Green d'hide body", 1_200},
+		{"Green d'hide chaps", 1_000}, {"Green d'hide vambraces", 800},
 		{"Rune scimitar", 15_000}, {"Dragon scimitar", 60_000}, {"Dragon longsword", 60_000}, {"Dragon mace", 30_000},
 		{"Dragon sword", 60_000}, {"Dragon warhammer", 24_000_000}, {"Abyssal whip", 1_300_000}, {12004, 300_000},
 		{"Abyssal dagger", 1_400_000}, {"Abyssal bludgeon", 15_000_000}, {"Zamorakian hasta", 6_000_000},

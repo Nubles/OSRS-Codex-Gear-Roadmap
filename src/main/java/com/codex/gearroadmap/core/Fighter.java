@@ -1,5 +1,6 @@
 package com.codex.gearroadmap.core;
 
+import com.codex.gearroadmap.data.Target;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,10 +38,19 @@ public final class Fighter
 	private final boolean rigour;
 	private final boolean augury;
 	private final boolean ancients;
-	private final boolean onTask;
+	private final SlayerTask task;
+	private boolean deadeye;
+	private boolean vigour;
+	private boolean kandarinHard;
 
 	public Fighter(Map<String, Integer> levels, Boost boost, boolean prayers, boolean piety, boolean rigour, boolean augury,
 		boolean ancients, boolean onTask)
+	{
+		this(levels, boost, prayers, piety, rigour, augury, ancients, onTask ? SlayerTask.ALWAYS : SlayerTask.NEVER);
+	}
+
+	public Fighter(Map<String, Integer> levels, Boost boost, boolean prayers, boolean piety, boolean rigour, boolean augury,
+		boolean ancients, SlayerTask task)
 	{
 		this.levels = levels == null ? Collections.emptyMap() : new HashMap<>(levels);
 		this.boost = boost == null ? Boost.NONE : boost;
@@ -49,7 +59,20 @@ public final class Fighter
 		this.rigour = rigour;
 		this.augury = augury;
 		this.ancients = ancients;
-		this.onTask = onTask;
+		this.task = task == null ? SlayerTask.NEVER : task;
+	}
+
+	/**
+	 * The same fighter with the prayer scrolls read from the game (Deadeye and Mystic Vigour)
+	 * and whether the Kandarin hard diary is done, which makes enchanted bolts trigger more often.
+	 */
+	public Fighter withUnlocks(boolean deadeye, boolean vigour, boolean kandarinHard)
+	{
+		Fighter f = new Fighter(levels, boost, prayers, piety, rigour, augury, ancients, task);
+		f.deadeye = deadeye;
+		f.vigour = vigour;
+		f.kandarinHard = kandarinHard;
+		return f;
 	}
 
 	/** A maxed account with every unlock, used for previews and tests. */
@@ -60,7 +83,7 @@ public final class Fighter
 		{
 			levels.put(skill, 99);
 		}
-		return new Fighter(levels, boost, true, true, true, true, true, false);
+		return new Fighter(levels, boost, true, true, true, true, true, false).withUnlocks(true, true, true);
 	}
 
 	public int level(String skill)
@@ -84,9 +107,26 @@ public final class Fighter
 		return ancients;
 	}
 
-	public boolean isOnTask()
+	public SlayerTask getTask()
 	{
-		return onTask;
+		return task;
+	}
+
+	/** Whether the black mask and slayer helmet count against this target. */
+	public boolean onTaskFor(Target target)
+	{
+		return task.covers(target);
+	}
+
+	public boolean isKandarinHard()
+	{
+		return kandarinHard;
+	}
+
+	/** Everything that changes the numbers besides levels and gear, for caching. */
+	public String assumptions()
+	{
+		return boost + "/" + prayers + piety + rigour + augury + deadeye + vigour + "/" + ancients + kandarinHard + "/" + task;
 	}
 
 	/** Whether the player meets every level an item asks for. */
@@ -113,6 +153,17 @@ public final class Fighter
 			}
 		}
 		return null;
+	}
+
+	/** How many levels in all the fighter is short of these requirements. */
+	public int shortfall(Map<String, Integer> requirements)
+	{
+		int total = 0;
+		for (Map.Entry<String, Integer> r : requirements.entrySet())
+		{
+			total += Math.max(0, r.getValue() - level(r.getKey()));
+		}
+		return total;
 	}
 
 	int attack()
@@ -191,6 +242,10 @@ public final class Fighter
 		{
 			return new Prayer("Rigour", 120, 123, 0);
 		}
+		if (deadeye && prayer >= 62)
+		{
+			return new Prayer("Deadeye", 118, 118, 0);
+		}
 		if (prayer >= 44)
 		{
 			return new Prayer("Eagle Eye", 115, 115, 0);
@@ -212,6 +267,10 @@ public final class Fighter
 		if (augury && prayer >= 77 && level("Defence") >= 70)
 		{
 			return new Prayer("Augury", 125, 100, 40);
+		}
+		if (vigour && prayer >= 63)
+		{
+			return new Prayer("Mystic Vigour", 118, 100, 30);
 		}
 		if (prayer >= 45)
 		{

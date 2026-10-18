@@ -27,6 +27,11 @@ VERSION_PREFERENCE = ["Charged", "", "Normal", "Unpoisoned", "Active", "Activate
 A, S, D, R, M, P = "Attack", "Strength", "Defence", "Ranged", "Magic", "Prayer"
 CATALOGUE = [
     # Melee weapons
+    ("Iron scimitar", {}),
+    ("Steel scimitar", {A: 5}),
+    ("Black scimitar", {A: 10}),
+    ("Mithril scimitar", {A: 20}),
+    ("Adamant scimitar", {A: 30}),
     ("Rune scimitar", {A: 40}),
     ("Dragon scimitar", {A: 60}, {"note": "Needs Monkey Madness I"}),
     ("Dragon longsword", {A: 60}),
@@ -57,6 +62,8 @@ CATALOGUE = [
     # Melee armour
     ("Tzhaar-ket-om", {S: 60}),
     ("Toktz-xil-ak", {A: 60}),
+    ("Mithril full helm", {D: 20}),
+    ("Adamant full helm", {D: 30}),
     ("Rune full helm", {D: 40}),
     ("Berserker helm", {D: 45}),
     ("Helm of neitiznot", {D: 55}, {"note": "Needs The Fremennik Isles"}),
@@ -66,18 +73,23 @@ CATALOGUE = [
     ("Inquisitor's great helm", {S: 70, D: 30}),
     ("Torva full helm", {D: 80}, {"build": [26376], "note": "Damaged helm, repaired after Nex"}),
     ("Obsidian helmet", {D: 60}),
+    ("Mithril platebody", {D: 20}),
+    ("Adamant platebody", {D: 30}),
     ("Rune platebody", {D: 40}, {"note": "Needs Dragon Slayer I"}),
     ("Fighter torso", {D: 40}, {"earn": "Barbarian Assault"}),
     ("Obsidian platebody", {D: 60}),
     ("Bandos chestplate", {D: 65}),
     ("Inquisitor's hauberk", {S: 70, D: 30}),
     ("Torva platebody", {D: 80}, {"build": [26378], "note": "Damaged body, repaired after Nex"}),
+    ("Mithril platelegs", {D: 20}),
+    ("Adamant platelegs", {D: 30}),
     ("Rune platelegs", {D: 40}),
     ("Dragon platelegs", {D: 60}),
     ("Obsidian platelegs", {D: 60}),
     ("Bandos tassets", {D: 65}),
     ("Inquisitor's plateskirt", {S: 70, D: 30}),
     ("Torva platelegs", {D: 80}, {"build": [26380], "note": "Damaged legs, repaired after Nex"}),
+    ("Adamant kiteshield", {D: 30}),
     ("Rune kiteshield", {D: 40}),
     ("Dragon defender", {A: 60, D: 60}, {"earn": "Warriors' Guild cyclopes"}),
     ("Avernic defender", {A: 70, D: 70}, {"build": [22477], "note": "A dragon defender and an avernic hilt"}),
@@ -97,6 +109,7 @@ CATALOGUE = [
     ("Dragon gloves", {}, {"earn": "Recipe for Disaster"}),
     ("Barrows gloves", {}, {"earn": "Recipe for Disaster"}),
     ("Ferocious gloves", {A: 80, D: 80}, {"build": [22983], "note": "Made from hydra leather"}),
+    ("Climbing boots", {}),
     ("Rune boots", {D: 40}),
     ("Dragon boots", {D: 60}),
     ("Primordial boots", {S: 75, D: 75}),
@@ -105,6 +118,10 @@ CATALOGUE = [
     ("Ultor ring", {}),
     ("Bellator ring", {}),
     # Ranged weapons
+    ("Shortbow", {}),
+    ("Oak shortbow", {R: 5}),
+    ("Willow shortbow", {R: 20}),
+    ("Maple shortbow", {R: 30}),
     ("Magic shortbow", {R: 50}),
     ("Magic shortbow (i)", {R: 50}, {"build": [861], "note": "Imbue a magic shortbow"}),
     ("Rune crossbow", {R: 61}),
@@ -120,6 +137,10 @@ CATALOGUE = [
     ("Twisted bow", {R: 75}),
     ("Zaryte crossbow", {R: 80}),
     # Ammunition
+    ("Iron arrow", {}),
+    ("Steel arrow", {R: 5}),
+    ("Mithril arrow", {R: 20}),
+    ("Adamant arrow", {R: 30}),
     ("Rune arrow", {R: 40}),
     ("Amethyst arrow", {R: 50}),
     ("Dragon arrow", {R: 60}),
@@ -132,6 +153,12 @@ CATALOGUE = [
     ("Diamond dragon bolts (e)", {R: 64}),
     ("Dragon javelin", {R: 75}),
     # Ranged armour
+    ("Coif", {R: 20}),
+    ("Studded body", {R: 20, D: 20}),
+    ("Studded chaps", {R: 20}),
+    ("Green d'hide body", {R: 40, D: 40}),
+    ("Green d'hide chaps", {R: 40}),
+    ("Green d'hide vambraces", {R: 40}),
     ("Black d'hide body", {R: 70, D: 40}),
     ("Black d'hide chaps", {R: 70}),
     ("Black d'hide vambraces", {R: 70}),
@@ -199,7 +226,27 @@ CATALOGUE = [
     ("Eternal boots", {M: 75, D: 75}),
     ("Seers ring (i)", {}, {"build": [6731], "note": "Imbue a seers ring"}),
     ("Magus ring", {}),
+    ("Tome of fire", {M: 50}, {"note": "Charged with burnt pages, for fire spells"}),
+    # Effects that carry no visible bonus
+    ("Slayer helmet (i)", {}, {"earn": "Slayer reward points, imbued at Nightmare Zone or Soul Wars"}),
+    ("Salve amulet(i)", {}, {"earn": "Imbue a salve amulet"}),
+    # Revenant weapons: half again as strong against monsters in the Wilderness
+    ("Ursine chainmace", {A: 70}, {"note": "Wilderness only, charged with revenant ether"}),
+    ("Webweaver bow", {R: 70}, {"note": "Wilderness only, charged with revenant ether"}),
+    ("Accursed sceptre", {M: 70}, {"note": "Wilderness only, charged with revenant ether"}),
 ]
+
+# Items whose effect is not in their bonuses, kept even when every bonus is zero or below.
+EFFECT_ITEMS = {"slayer helmet", "slayer helmet (i)", "black mask", "black mask (i)", "salve amulet", "salve amulet(i)",
+                "salve amulet (e)", "salve amulet(ei)"}
+
+# Monsters fought in the Wilderness, where revenant weapons get their bonus.
+WILDERNESS = {"Callisto", "Venenatis", "Vet'ion", "Artio", "Spindel", "Scorpia", "Chaos Elemental"}
+
+
+def canonical(name):
+    """Charged copies such as "Black mask (7)" count as the one item."""
+    return re.sub(r"^(Black mask(?: \(i\))?) \(\d+\)$", r"\1", name)
 
 # Targets that only some attacks can hurt, by their label.
 ONLY = {
@@ -207,7 +254,12 @@ ONLY = {
     "Kree'arra": ["ranged", "magic"],
     "Zulrah": ["ranged", "magic"],
     "Grotesque Guardians": ["melee"],
+    "The Leviathan": ["ranged", "magic"],
 }
+
+# Defence levels that change during the fight, given as the middle of their range.
+# Vardorvis's defence falls from 215 to 145 as he loses health.
+DEFENCE = {"Vardorvis": 180}
 
 TARGETS = [
     # (group, name, version or None, label)
@@ -350,7 +402,7 @@ def main():
     for e in equipment:
         if e["slot"] not in SLOTS:
             continue
-        groups.setdefault(e["name"].lower(), []).append(e)
+        groups.setdefault(canonical(e["name"]).lower(), []).append(e)
 
     by_id = {}
     for name, entries in groups.items():
@@ -372,13 +424,13 @@ def main():
         b = e["bonuses"]
         offence = [o["stab"], o["slash"], o["crush"], o["magic"], o["ranged"]]
         power = [b["str"], b["ranged_str"], b["magic_str"]]
-        useful = any(v > 0 for v in offence + power) or name in catalogue_names
+        useful = any(v > 0 for v in offence + power) or name in catalogue_names or name in EFFECT_ITEMS
         if not useful or e["slot"] == "weapon" and e["category"] == "Unarmed" and name not in catalogue_names:
             continue
         ids = sorted({x["id"] for x in entries})
         item = {
             "id": e["id"],
-            "name": e["name"],
+            "name": canonical(e["name"]),
             "slot": SLOTS.index(e["slot"]),
             "o": offence,
             "p": power,
@@ -433,7 +485,7 @@ def main():
             "name": label or name,
             "group": group,
             "hp": sk["hp"],
-            "def": sk["def"],
+            "def": DEFENCE.get(label or name, sk["def"]),
             "mag": sk["magic"],
             "mb": m["offensive"]["magic"],
             "d": [d["stab"], d["slash"], d["crush"], d["magic"], d["light"], d["standard"], d["heavy"]],
@@ -442,6 +494,10 @@ def main():
             "slayer": bool(m.get("is_slayer_monster")),
             "weak": [m["weakness"]["element"], m["weakness"]["severity"]] if m.get("weakness") else None,
         })
+        if d.get("flat_armour"):
+            targets[-1]["fa"] = d["flat_armour"]
+        if (label or name) in WILDERNESS:
+            targets[-1]["wild"] = True
         if (label or name) in ONLY:
             targets[-1]["only"] = ONLY[label or name]
 
