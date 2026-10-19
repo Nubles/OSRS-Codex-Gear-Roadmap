@@ -421,6 +421,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 			if (!key.equals(taskKey))
 			{
 				taskKey = key;
+				if (key.isEmpty())
+				{
+					// The task is done: the next one is followed again, even if it is the same monster.
+					taskDismissed = null;
+					taskPick = null;
+					taskPickKey = null;
+				}
 				dirty = true;
 			}
 		}
