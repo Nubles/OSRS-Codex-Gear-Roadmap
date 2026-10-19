@@ -621,7 +621,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 		taskChanged(taskWatch.tick(taskKey()));
 		watchFight();
 		ticksSinceAnalysis++;
-		if (dirty && ticksSinceAnalysis >= ANALYSE_GAP_TICKS)
+		// The plan reads the slayer task straight from the varps, so it waits for them to settle after
+		// a login or hop: a plan made while they blink to none would aim away from the task, and the
+		// settling tick, seeing the same task as before, would never plan again.
+		if (dirty && ticksSinceAnalysis >= ANALYSE_GAP_TICKS && taskWatch.isSettled())
 		{
 			dirty = false;
 			coinsDirty = false;

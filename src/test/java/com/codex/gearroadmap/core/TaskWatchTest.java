@@ -71,4 +71,25 @@ public class TaskWatchTest
 		assertEquals(TaskWatch.Change.CHANGED, w.tick(""));
 		assertEquals(TaskWatch.Change.NONE, w.seen(""));
 	}
+	/**
+	 * The plan reads the task straight from the varps, so it is only made once settled: a plan made
+	 * during the blink would aim away from the task, and nothing after it would plan again.
+	 */
+	@Test
+	public void aPlanMadeDuringTheBlinkWouldNeverBeRedone()
+	{
+		TaskWatch w = new TaskWatch();
+		settle(w, "42:0");
+		w.tick("42:0");
+		w.arrived();
+		assertFalse("not settled on the first tick after a hop, when the varps may still read none", w.isSettled());
+		assertEquals(TaskWatch.Change.NONE, w.tick(""));
+		assertFalse(w.isSettled());
+		for (int i = 0; i < TaskWatch.SETTLE_TICKS - 2; i++)
+		{
+			assertEquals(TaskWatch.Change.NONE, w.tick("42:0"));
+		}
+		assertEquals("the task came back as it was: no new plan is asked for", TaskWatch.Change.NONE, w.tick("42:0"));
+		assertTrue(w.isSettled());
+	}
 }
