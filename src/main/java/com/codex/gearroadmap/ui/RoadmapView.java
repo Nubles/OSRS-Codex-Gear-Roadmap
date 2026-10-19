@@ -206,7 +206,7 @@ final class RoadmapView
 	static Card fightCard(Report report, String fighting, Runnable aim, Runnable hide)
 	{
 		Roadmap map = report.getRoadmap();
-		if (fighting == null || map == null || !report.isLoggedIn() || fighting.equals(map.getTarget().getName()))
+		if (fighting == null || map == null || !report.isLoggedIn() || report.getSurvey() == null || fighting.equals(map.getTarget().getName()))
 		{
 			return null;
 		}

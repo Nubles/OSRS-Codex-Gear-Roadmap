@@ -190,6 +190,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private final Map<Skill, Integer> realLevels = new HashMap<>();
 	/** Which task the plan was made for, believed only once the varps settle after a login or hop. */
 	private final TaskWatch taskWatch = new TaskWatch();
+	/** Set on a login, hop or reconnect, until the game is in the world again. */
+	private boolean arriving;
 	/** The listed monster the player is fighting, offered as a one-click aim; built with the data. */
 	private Fighting fighting;
 	/** The upgrade the player is saving for, per account. */
@@ -348,6 +350,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			// The varps are taken afresh in the new world; the task may blink to none and back meanwhile.
 			taskWatch.arrived();
+			arriving = true;
 		}
 		if (state == GameState.LOGIN_SCREEN)
 		{
@@ -356,8 +359,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 			generation.incrementAndGet();
 			publish(Report.loggedOut(), null);
 		}
-		else if (event.getGameState() == GameState.LOGGED_IN)
+		else if (state == GameState.LOGGED_IN && arriving)
 		{
+			// Only arriving in a world needs a fresh plan: the game passes through LOGGED_IN again after
+			// every loading screen (each teleport), and what changes there brings its own event.
+			arriving = false;
 			dirty = true;
 		}
 	}
