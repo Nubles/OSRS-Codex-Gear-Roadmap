@@ -284,6 +284,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 				copyCard(card);
 			}
 		});
+		panel.setShowName(config.nameOnCard());
 		navButton = NavigationButton.builder()
 			.tooltip("Codex Gear Roadmap")
 			.icon(Sigil.icon(16))
@@ -473,6 +474,17 @@ public class CodexGearRoadmapPlugin extends Plugin
 		if (!config.showPlaque())
 		{
 			plaque.clear();
+		}
+		if (CodexGearRoadmapConfig.NAME_ON_CARD.equals(event.getKey()))
+		{
+			// Only the road card, drawn when asked for, uses it: nothing to plan again.
+			GearRoadmapPanel target = panel;
+			boolean showName = config.nameOnCard();
+			if (target != null)
+			{
+				SwingUtilities.invokeLater(() -> target.setShowName(showName));
+			}
+			return;
 		}
 		if (CodexGearRoadmapConfig.TARGET.equals(event.getKey()))
 		{

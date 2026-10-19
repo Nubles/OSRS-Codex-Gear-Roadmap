@@ -18,6 +18,7 @@ public interface CodexGearRoadmapConfig extends Config
 	/** The old on-task switch, read once to carry a "never" choice over to the slayer task setting. */
 	String OLD_ON_TASK = "onTask";
 	String FOLLOW_TASK = "followTask";
+	String NAME_ON_CARD = "nameOnCard";
 
 	@ConfigSection(
 		name = "Fighting",
@@ -129,6 +130,17 @@ public interface CodexGearRoadmapConfig extends Config
 		section = claims
 	)
 	default boolean chatLine()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = NAME_ON_CARD,
+		name = "Name on cards",
+		description = "Write your character's name on the road card; turn off to share it without it",
+		position = 2
+	)
+	default boolean nameOnCard()
 	{
 		return true;
 	}
