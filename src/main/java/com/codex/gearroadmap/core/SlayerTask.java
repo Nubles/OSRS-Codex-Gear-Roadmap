@@ -1,9 +1,12 @@
 package com.codex.gearroadmap.core;
 
 import com.codex.gearroadmap.data.Target;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -78,6 +81,7 @@ public final class SlayerTask
 		cover("ammonite crab", "crabs");
 		cover("sand crab", "crabs");
 		cover("rock crab", "crabs");
+		cover("basilisk knight", "basilisks");
 	}
 
 	private final Mode mode;
@@ -138,6 +142,31 @@ public final class SlayerTask
 			return true;
 		}
 		return COVERED_BY.getOrDefault(m, Collections.emptySet()).contains(t);
+	}
+
+	/**
+	 * The targets a task covers, best first: the monster it is named for, then other Slayer
+	 * creatures, then training spots, then bosses, each in the catalogue's own order. A Smoke
+	 * devils task aims at smoke devils before the Thermonuclear smoke devil.
+	 */
+	public static List<Target> targetsFor(String task, List<Target> targets)
+	{
+		List<Target> covered = new ArrayList<>();
+		if (task == null || task.isEmpty() || targets == null)
+		{
+			return covered;
+		}
+		String named = normal(task);
+		for (Target t : targets)
+		{
+			if (t.isSlayer() && taskCovers(task, t.getName()))
+			{
+				covered.add(t);
+			}
+		}
+		covered.sort(Comparator.comparingInt(t -> normal(t.getName()).equals(named) ? 0
+			: "Slayer".equals(t.getGroup()) ? 1 : "Training".equals(t.getGroup()) ? 2 : 3));
+		return covered;
 	}
 
 	/** Lower case, without "The" or a plural "s", so "The Abyssal Sire" and "Hill Giants" match their monsters. */

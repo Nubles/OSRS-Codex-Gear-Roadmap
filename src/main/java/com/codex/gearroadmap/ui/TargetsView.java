@@ -6,6 +6,7 @@ import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.data.Target;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import javax.swing.BoxLayout;
@@ -37,6 +38,23 @@ final class TargetsView
 			return stack;
 		}
 		String needle = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+		List<String> task = report.getTaskTargets();
+		if (!task.isEmpty() && needle.isEmpty() && filter == 0)
+		{
+			// The task's monsters first, so aiming at what the task covers is one click away.
+			stack.add(new SectionHeader("Slayer task", report.getTaskName() == null ? null : Format.task(report.getTaskName())));
+			for (String name : task)
+			{
+				for (Roadmap.Survey row : report.getSurvey())
+				{
+					if (row.getTarget().getName().equals(name))
+					{
+						stack.add(row(row, name.equals(focused), onPick));
+					}
+				}
+			}
+			stack.add(new SectionHeader("All targets"));
+		}
 		int shown = 0;
 		for (Roadmap.Survey row : report.getSurvey())
 		{

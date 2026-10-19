@@ -1,9 +1,11 @@
 package com.codex.gearroadmap;
 
 import com.codex.gearroadmap.core.Advisor;
+import com.codex.gearroadmap.core.Aim;
 import com.codex.gearroadmap.core.Fighter;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.SlayerTask;
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
@@ -18,6 +20,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.google.inject.Provides;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -80,6 +83,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 {
 	private static final Logger log = LoggerFactory.getLogger(CodexGearRoadmapPlugin.class);
 	private static final String BANK_KEY = "bank";
+	private static final String GOAL_KEY = "goal";
+	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
+	private static final String LEDGER_GROUP = "codexledger";
+	private static final String LEDGER_KEY = "ledger";
 	private static final Skill[] SKILLS = {
 		Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC, Skill.PRAYER, Skill.HITPOINTS, Skill.AGILITY,
 	};
@@ -146,6 +153,19 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private final Map<Skill, Integer> realLevels = new HashMap<>();
 	/** Which task the plan was made for; the kill count falls on every kill and must not re-plan each time. */
 	private String taskKey;
+	/** The upgrade the player is saving for, per account. */
+	private Savings.Goal goal;
+	/** Codex Ledger's net worth for this account, or null when it is not installed. */
+	private volatile Savings.Worth worth;
+	/** Whether the goal was affordable at the last look; null until then, so a login never announces it. */
+	private Boolean goalAffordable;
+	/** The task the player turned away from by choosing another target, by task key. */
+	private String taskDismissed;
+	/** Which of the task's targets the player picked, and for which task. */
+	private String taskPick;
+	private String taskPickKey;
+	/** The current slayer task's name as the game writes it, read with the fighter. */
+	private String taskName;
 	/** The analysis whose report was last published, so a coin update never lands on a road about to be replaced. */
 	private volatile int publishedTicket;
 
@@ -193,8 +213,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 			image.onLoaded(onLoaded);
 			return image;
 		};
-		panel = new GearRoadmapPanel(icons, name -> configManager.setConfiguration(CodexGearRoadmapConfig.GROUP,
-			CodexGearRoadmapConfig.TARGET, name));
+		panel = new GearRoadmapPanel(icons, name -> clientThread.invoke(() -> aim(name)),
+			option -> clientThread.invoke(() -> setGoal(option)));
 		navButton = NavigationButton.builder()
 			.tooltip("Codex Gear Roadmap")
 			.icon(Sigil.icon(16))
@@ -256,6 +276,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 		taskKey = null;
 		survey = null;
 		claimed.clear();
+		goal = null;
+		worth = null;
+		goalAffordable = null;
+		taskDismissed = null;
+		taskPick = null;
+		taskPickKey = null;
 	}
 
 	@Subscribe
@@ -282,6 +308,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 		ancients = null;
 		survey = null;
 		claimed.clear();
+		goal = null;
+		worth = null;
+		goalAffordable = null;
+		taskDismissed = null;
+		taskPick = null;
+		taskPickKey = null;
 		loadBank();
 		dirty = true;
 	}
@@ -289,8 +321,19 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (!CodexGearRoadmapConfig.GROUP.equals(event.getGroup()))
+		if (LEDGER_GROUP.equals(event.getGroup()))
 		{
+			// Codex Ledger saved its book: only the savings pace moves, never the plan.
+			if (LEDGER_KEY.equals(event.getKey()) && profile != null && profile.equals(event.getProfile()))
+			{
+				readWorth();
+				coinsDirty = true;
+			}
+			return;
+		}
+		if (!CodexGearRoadmapConfig.GROUP.equals(event.getGroup()) || event.getProfile() != null)
+		{
+			// The plugin's own per-account saves (bank, goal) change nothing that needs a new plan.
 			return;
 		}
 		if (!config.showPlaque())
@@ -319,6 +362,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			dirty = true;
 			if (bankKnown)
 			{
+				checkGoal(before, after);
 				checkClaims(before, after);
 			}
 		}
@@ -358,15 +402,20 @@ public class CodexGearRoadmapPlugin extends Plugin
 			|| event.getVarbitId() == -1 && TASK_VARPS.contains(event.getVarpId()))
 		{
 			// Only a new task, or the end of one, changes the plan; the count itself does not.
-			boolean onTask = client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0;
-			String key = onTask ? client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":"
-				+ client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID) : "";
+			String key = taskKey();
 			if (!key.equals(taskKey))
 			{
 				taskKey = key;
 				dirty = true;
 			}
 		}
+	}
+
+	/** The task by its id (and boss id), or "" without one; its kill count is left out on purpose. */
+	private String taskKey()
+	{
+		boolean onTask = client.getVarpValue(VarPlayerID.SLAYER_COUNT) > 0;
+		return onTask ? client.getVarpValue(VarPlayerID.SLAYER_TARGET) + ":" + client.getVarbitValue(VarbitID.SLAYER_TARGET_BOSSID) : "";
 	}
 
 	@Subscribe
@@ -402,7 +451,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			Report report = lastReport;
 			if (report != null && report.getRoadmap() != null)
 			{
-				Report recoined = report.withRoadmap(report.getRoadmap().withCoins(report.isIronman() ? 0 : coins()));
+				Report recoined = dress(report.withRoadmap(report.getRoadmap().withCoins(report.isIronman() ? 0 : coins())));
 				lastReport = recoined;
 				lastRoadmap = recoined.getRoadmap();
 				publish(recoined, lastName);
@@ -477,6 +526,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 			return;
 		}
 		profile = key;
+		loadGoal();
+		readWorth();
 		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY);
 		if (json == null || json.isEmpty())
 		{
@@ -529,6 +580,59 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 	}
 
+	/** The player now owns every piece of their savings goal: say so, and the goal is done. */
+	private void checkGoal(Set<Integer> before, Set<Integer> after)
+	{
+		if (goal == null)
+		{
+			return;
+		}
+		List<Gear> pieces = new ArrayList<>();
+		for (int id : goal.getIds())
+		{
+			Gear g = data.gear(id);
+			if (g == null)
+			{
+				return;
+			}
+			pieces.add(g);
+		}
+		if (!ownsAll(pieces, after) || ownsAll(pieces, before))
+		{
+			return;
+		}
+		// The same upgrade on the road is not claimed a second time.
+		claimed.add(goal.getName());
+		Gear icon = pieces.get(0);
+		for (Gear g : pieces)
+		{
+			if (g.getSlot() == Gear.BODY)
+			{
+				icon = g;
+			}
+		}
+		if (config.showPlaque())
+		{
+			plaque.show(new UpgradePlaque.View("GOAL MET", goal.getName(), "The upgrade you saved for is yours",
+				"Pick your next goal on the Roadmap", Theme.GREEN, itemManager.getImage(icon.getId()), System.currentTimeMillis(),
+				config.plaqueSeconds() * 1000L));
+		}
+		if (config.chatLine())
+		{
+			String line = new ChatMessageBuilder()
+				.append(ChatColorType.HIGHLIGHT).append("Gear Roadmap: ")
+				.append(ChatColorType.NORMAL).append("savings goal met, ")
+				.append(ChatColorType.HIGHLIGHT).append(goal.getName())
+				.append(ChatColorType.NORMAL).append(" is yours.")
+				.build();
+			chatMessageManager.queue(QueuedMessage.builder()
+				.type(ChatMessageType.CONSOLE)
+				.runeLiteFormattedMessage(line)
+				.build());
+		}
+		setGoal(null);
+	}
+
 	private static boolean ownsAll(List<Gear> pieces, Set<Integer> ids)
 	{
 		for (Gear piece : pieces)
@@ -578,6 +682,156 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 	}
 
+	/**
+	 * The player picked a target on the Targets tab. One of the slayer task's targets only moves
+	 * the aim within the task; any other becomes the chosen target and stops following this task.
+	 */
+	private void aim(String name)
+	{
+		Report report = lastReport;
+		String key = client.getGameState() == GameState.LOGGED_IN ? taskKey() : "";
+		boolean onTaskTarget = report != null && report.getTaskTargets().contains(name);
+		if (onTaskTarget && config.followTask())
+		{
+			taskPick = name;
+			taskPickKey = key;
+			taskDismissed = null;
+			dirty = true;
+			return;
+		}
+		if (!key.isEmpty() && report != null && !report.getTaskTargets().isEmpty())
+		{
+			taskDismissed = key;
+		}
+		if (name.equals(config.target()))
+		{
+			dirty = true;
+		}
+		configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, CodexGearRoadmapConfig.TARGET, name);
+	}
+
+	/** Saves for an upgrade, or clears the goal when given null. */
+	private void setGoal(Roadmap.Option option)
+	{
+		if (option == null)
+		{
+			goal = null;
+		}
+		else
+		{
+			List<Integer> ids = new ArrayList<>();
+			for (Gear piece : option.getPieces())
+			{
+				ids.add(piece.getIds()[0]);
+			}
+			goal = new Savings.Goal(option.getName(), ids);
+		}
+		goalAffordable = null;
+		saveGoal();
+		dirty = true;
+	}
+
+	private void loadGoal()
+	{
+		goal = null;
+		goalAffordable = null;
+		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, GOAL_KEY);
+		if (json == null || json.isEmpty())
+		{
+			return;
+		}
+		try
+		{
+			Savings.Goal saved = gson.fromJson(json, Savings.Goal.class);
+			goal = saved != null && saved.isValid() ? saved : null;
+		}
+		catch (JsonParseException e)
+		{
+			log.warn("Could not read the saved savings goal", e);
+		}
+	}
+
+	private void saveGoal()
+	{
+		if (profile == null)
+		{
+			return;
+		}
+		if (goal == null)
+		{
+			configManager.unsetConfiguration(CodexGearRoadmapConfig.GROUP, profile, GOAL_KEY);
+		}
+		else
+		{
+			configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, profile, GOAL_KEY, gson.toJson(goal));
+		}
+	}
+
+	/** Reads Codex Ledger's saved net worth for this account; never writes it. Null when it is not installed. */
+	private void readWorth()
+	{
+		String json = configManager.getRSProfileConfiguration(LEDGER_GROUP, LEDGER_KEY);
+		if (json == null || json.isEmpty())
+		{
+			worth = null;
+			return;
+		}
+		try
+		{
+			Savings.Worth read = gson.fromJson(json, Savings.Worth.class);
+			worth = read == null || read.getTotal() <= 0 ? null : read;
+		}
+		catch (RuntimeException e)
+		{
+			// Another plugin's format may change under us; without it the goal simply has no pace.
+			log.debug("Could not read Codex Ledger's net worth", e);
+			worth = null;
+		}
+	}
+
+	/** Adds the savings goal's standing to a report, and says so once the player's coins reach it. */
+	private Report dress(Report report)
+	{
+		Roadmap map = report.getRoadmap();
+		if (map == null || goal == null || report.isIronman() || map.getGoal() == null)
+		{
+			return report.withSavings(null);
+		}
+		Savings.View view = Savings.of(map.getGoal(), map.isGoalOwned(), coins(), worth, System.currentTimeMillis());
+		boolean affordable = view.isAffordable();
+		if (Boolean.FALSE.equals(goalAffordable) && affordable && !view.isOwned())
+		{
+			announceGoal(view, map.getTarget().getName());
+		}
+		goalAffordable = affordable;
+		return report.withSavings(view);
+	}
+
+	private void announceGoal(Savings.View view, String target)
+	{
+		Roadmap.Option option = view.getOption();
+		String gain = option.getGain() > 0 ? Format.gain(option.getGain()) + " DPS against " + target : "Saved for in Gear Roadmap";
+		if (config.showPlaque())
+		{
+			plaque.show(new UpgradePlaque.View("GOAL IN REACH", option.getName(), gain,
+				"Your coins now cover its " + Format.coins(option.getCost()), Theme.TEAL,
+				itemManager.getImage(option.getIcon().getId()), System.currentTimeMillis(), config.plaqueSeconds() * 1000L));
+		}
+		if (config.chatLine())
+		{
+			String line = new ChatMessageBuilder()
+				.append(ChatColorType.HIGHLIGHT).append("Gear Roadmap: ")
+				.append(ChatColorType.NORMAL).append("your coins now cover your goal, ")
+				.append(ChatColorType.HIGHLIGHT).append(option.getName())
+				.append(ChatColorType.NORMAL).append(" (" + Format.coins(option.getCost()) + ").")
+				.build();
+			chatMessageManager.queue(QueuedMessage.builder()
+				.type(ChatMessageType.CONSOLE)
+				.runeLiteFormattedMessage(line)
+				.build());
+		}
+	}
+
 	private Fighter fighter()
 	{
 		Map<String, Integer> levels = new HashMap<>();
@@ -595,7 +849,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		boolean deadeye = client.getVarbitValue(VarbitID.PRAYER_DEADEYE_UNLOCKED) == 1;
 		boolean vigour = client.getVarbitValue(VarbitID.PRAYER_MYSTIC_VIGOUR_UNLOCKED) == 1;
 		boolean kandarin = client.getVarbitValue(VarbitID.KANDARIN_DIARY_HARD_COMPLETE) == 1;
-		SlayerTask task = SlayerTask.of(config.slayerTask(), currentTask());
+		taskName = currentTask();
+		SlayerTask task = SlayerTask.of(config.slayerTask(), taskName);
 		return new Fighter(levels, config.boost(), config.prayers(), piety, rigour, augury, ancients, task)
 			.withUnlocks(deadeye, vigour, kandarin);
 	}
@@ -661,11 +916,19 @@ public class CodexGearRoadmapPlugin extends Plugin
 				prices.put(id, price);
 			}
 		}
-		Target target = data.target(config.target());
-		if (target == null)
+		String key = taskKey();
+		boolean follow = config.followTask() && !key.equals(taskDismissed);
+		boolean bossTask = !key.isEmpty() && client.getVarpValue(VarPlayerID.SLAYER_TARGET) == BOSS_TASK;
+		Aim aimed = Aim.choose(data.targets(), config.target(), follow, taskName, bossTask,
+			key.equals(taskPickKey) ? taskPick : null);
+		Target target = aimed.getTarget();
+		List<String> taskTargets = new ArrayList<>();
+		for (Target t : aimed.getCovered())
 		{
-			target = data.targets().get(0);
+			taskTargets.add(t.getName());
 		}
+		boolean following = aimed.isFollowing();
+		String shownTask = taskName;
 		boolean ironman = client.getVarbitValue(VarbitID.IRONMAN) > 0;
 		// Ironmen cannot buy, so their coins never put an upgrade in reach.
 		long coins = ironman ? 0 : coins();
@@ -678,12 +941,14 @@ public class CodexGearRoadmapPlugin extends Plugin
 		Player player = client.getLocalPlayer();
 		String name = player == null ? null : player.getName();
 		Target aim = target;
+		// Ironmen cannot buy, so they have no savings goal.
+		Savings.Goal saving = ironman ? null : goal;
 		int ticket = generation.incrementAndGet();
 		executor.execute(() ->
 		{
 			try
 			{
-				Roadmap map = advisor.plan(owned, fighter, aim, id -> prices.getOrDefault(id, 0L), coins);
+				Roadmap map = advisor.plan(owned, fighter, aim, id -> prices.getOrDefault(id, 0L), coins, saving);
 				SurveyCache cached = survey;
 				if (cached == null || !cached.key.equals(surveyKey))
 				{
@@ -693,12 +958,22 @@ public class CodexGearRoadmapPlugin extends Plugin
 				{
 					survey = cached;
 					lastRoadmap = map;
-					Report report = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
-						.withAccount(ironman, seasonal, task, slayer);
-					lastReport = report;
-					lastName = name;
-					publishedTicket = ticket;
-					publish(report, name);
+					Report planned = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
+						.withAccount(ironman, seasonal, task, slayer)
+						.withTask(following, taskTargets, shownTask);
+					// The goal's standing is settled on the client thread, where the goal and coins live.
+					clientThread.invokeLater(() ->
+					{
+						if (ticket != generation.get())
+						{
+							return;
+						}
+						Report report = dress(planned);
+						lastReport = report;
+						lastName = name;
+						publishedTicket = ticket;
+						publish(report, name);
+					});
 				}
 			}
 			catch (RuntimeException e)

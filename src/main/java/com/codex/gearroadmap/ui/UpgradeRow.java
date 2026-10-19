@@ -2,6 +2,7 @@ package com.codex.gearroadmap.ui;
 
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.data.Target;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -30,7 +31,8 @@ final class UpgradeRow
 	{
 	}
 
-	static Card build(Roadmap.Option o, Mode mode, int rank, boolean affordable, Result.Kind before, ItemIcons icons, Runnable onClick)
+	static Card build(Roadmap.Option o, Mode mode, int rank, boolean affordable, Result.Kind before, ItemIcons icons, Target target,
+		Runnable onClick)
 	{
 		Card card = new Card(new BorderLayout(7, 0));
 		card.setBorder(new EmptyBorder(6, 8, 6, 8));
@@ -140,6 +142,13 @@ final class UpgradeRow
 		if (after.getStyle() != null)
 		{
 			tip.append(", ").append(Ui.escape(after.getStyle().toLowerCase()));
+		}
+		double was = o.getGain() > 0 && o.getAfter().dps() > o.getGain() ? target.getHp() / (o.getAfter().dps() - o.getGain()) : 0;
+		double now = after.secondsToKill(target);
+		if (was > 0 && !Double.isInfinite(now) && was - now >= 0.5)
+		{
+			tip.append("<br>Kill time ").append(Format.time(was)).append(" to ").append(Format.time(now))
+				.append(", ").append(Math.round((1 - now / was) * 100)).append("% faster");
 		}
 		if (onClick != null)
 		{

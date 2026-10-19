@@ -17,6 +17,7 @@ public interface CodexGearRoadmapConfig extends Config
 	String SLAYER_TASK = "slayerTask";
 	/** The old on-task switch, read once to carry a "never" choice over to the slayer task setting. */
 	String OLD_ON_TASK = "onTask";
+	String FOLLOW_TASK = "followTask";
 
 	@ConfigSection(
 		name = "Fighting",
@@ -27,7 +28,7 @@ public interface CodexGearRoadmapConfig extends Config
 
 	@ConfigSection(
 		name = "Claimed upgrades",
-		description = "What Gear Roadmap does when you get an upgrade on your road",
+		description = "What Gear Roadmap does when you get an upgrade on your road, or your coins reach your savings goal",
 		position = 1
 	)
 	String claims = "claims";
@@ -82,9 +83,22 @@ public interface CodexGearRoadmapConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = FOLLOW_TASK,
+		name = "Follow slayer task",
+		description = "While your slayer task covers a listed monster, aim the roadmap at it instead of your chosen target."
+			+ " Picking a target the task does not cover turns this off until your next task",
+		position = 4,
+		section = fighting
+	)
+	default boolean followTask()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "showPlaque",
 		name = "Show plaque",
-		description = "Show a plaque in the game view when you get an upgrade from your road",
+		description = "Show a plaque in the game view when you get an upgrade from your road, or can afford your savings goal",
 		position = 1,
 		section = claims
 	)
@@ -110,7 +124,7 @@ public interface CodexGearRoadmapConfig extends Config
 	@ConfigItem(
 		keyName = "chatLine",
 		name = "Upgrade in chat",
-		description = "Add a line to the chat box with the damage a claimed upgrade adds",
+		description = "Add a line to the chat box with the damage a claimed upgrade adds, and when your savings goal is in reach",
 		position = 3,
 		section = claims
 	)

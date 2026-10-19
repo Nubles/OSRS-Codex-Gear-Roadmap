@@ -1,5 +1,6 @@
 package com.codex.gearroadmap.core;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -16,6 +17,10 @@ public final class Report
 	private boolean seasonal;
 	private String task;
 	private Boolean slayer;
+	private Savings.View savings;
+	private boolean following;
+	private String taskName;
+	private List<String> taskTargets = Collections.emptyList();
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -36,7 +41,7 @@ public final class Report
 	/** As above, with whether the slayer helmet counts against the aimed target, or null when it is no slayer monster. */
 	public Report withAccount(boolean ironman, boolean seasonal, String task, Boolean slayer)
 	{
-		Report r = new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen);
+		Report r = copy(roadmap);
 		r.ironman = ironman;
 		r.seasonal = seasonal;
 		r.task = task;
@@ -47,7 +52,42 @@ public final class Report
 	/** A copy with another roadmap, such as the same road with the player's coins updated. */
 	public Report withRoadmap(Roadmap roadmap)
 	{
-		return new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen).withAccount(ironman, seasonal, task, slayer);
+		return copy(roadmap);
+	}
+
+	/**
+	 * A copy that knows which targets the slayer task covers, and whether the roadmap is aimed
+	 * at one of them because it follows the task rather than the chosen target.
+	 */
+	public Report withTask(boolean following, List<String> taskTargets, String taskName)
+	{
+		Report r = copy(roadmap);
+		r.following = following;
+		r.taskName = taskName;
+		r.taskTargets = taskTargets == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(taskTargets));
+		return r;
+	}
+
+	/** A copy with the savings goal's standing, or none. */
+	public Report withSavings(Savings.View savings)
+	{
+		Report r = copy(roadmap);
+		r.savings = savings;
+		return r;
+	}
+
+	private Report copy(Roadmap roadmap)
+	{
+		Report r = new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen);
+		r.ironman = ironman;
+		r.seasonal = seasonal;
+		r.task = task;
+		r.slayer = slayer;
+		r.savings = savings;
+		r.following = following;
+		r.taskName = taskName;
+		r.taskTargets = taskTargets;
+		return r;
 	}
 
 	public static Report loggedOut()
@@ -104,6 +144,30 @@ public final class Report
 	public String getTask()
 	{
 		return task;
+	}
+
+	/** The savings goal's standing, or null without a goal. */
+	public Savings.View getSavings()
+	{
+		return savings;
+	}
+
+	/** Whether the roadmap is aimed at the slayer task's monster rather than the chosen target. */
+	public boolean isFollowingTask()
+	{
+		return following;
+	}
+
+	/** The current slayer task's name as the game writes it, or null. */
+	public String getTaskName()
+	{
+		return taskName;
+	}
+
+	/** The targets the current slayer task covers, best first; empty without a task or when none are listed. */
+	public List<String> getTaskTargets()
+	{
+		return taskTargets;
 	}
 
 	/** Whether the bank has been read, so the owned list is complete. */

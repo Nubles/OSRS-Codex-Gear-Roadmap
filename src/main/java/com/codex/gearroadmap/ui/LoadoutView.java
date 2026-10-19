@@ -5,12 +5,16 @@ import com.codex.gearroadmap.core.Planner;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
@@ -23,7 +27,8 @@ final class LoadoutView
 	{
 	}
 
-	static StackPanel build(Report report, int kindIndex, Roadmap.Option preview, ItemIcons icons, Runnable clearPreview)
+	static StackPanel build(Report report, int kindIndex, Roadmap.Option preview, ItemIcons icons, Runnable clearPreview,
+		Consumer<Roadmap.Option> saveFor)
 	{
 		StackPanel stack = new StackPanel(6, 8);
 		Roadmap map = report.getRoadmap();
@@ -43,7 +48,11 @@ final class LoadoutView
 			banner.setBorder(new EmptyBorder(6, 10, 6, 10));
 			JPanel text = new JPanel(new BorderLayout());
 			text.setOpaque(false);
-			text.add(Ui.label("With " + preview.getName(), Theme.body(), Theme.TEXT), BorderLayout.NORTH);
+			JLabel with = Ui.label("With " + preview.getName(), Theme.body(), Theme.TEXT);
+			with.setToolTipText(preview.getName());
+			with.setMinimumSize(new Dimension(10, 10));
+			with.setPreferredSize(new Dimension(10, with.getPreferredSize().height));
+			text.add(with, BorderLayout.NORTH);
 			text.add(Ui.label("New pieces glow teal", Theme.small(), Theme.TEAL), BorderLayout.SOUTH);
 			banner.add(text, BorderLayout.CENTER);
 			JPanel trail = new JPanel(new BorderLayout());
@@ -51,6 +60,26 @@ final class LoadoutView
 			trail.add(new CodexButton("Back", false, clearPreview), BorderLayout.NORTH);
 			banner.add(trail, BorderLayout.EAST);
 			stack.add(banner);
+			// Anything bought can be saved for; ironmen cannot buy, and earned upgrades cost nothing.
+			if (!report.isIronman() && preview.getCost() > 0)
+			{
+				Savings.View savings = report.getSavings();
+				boolean already = savings != null && savings.getOption().getName().equals(preview.getName());
+				JPanel save = new JPanel(new BorderLayout(8, 0));
+				save.setOpaque(false);
+				save.setBorder(new EmptyBorder(0, 2, 0, 0));
+				String line = already ? "This is your savings goal." : savings != null
+					? "Replaces " + savings.getOption().getName() + " as your goal." : "Track your coins toward it on the Roadmap.";
+				save.add(Ui.wrapped(line, Theme.small(), already ? Theme.GOLD : Theme.TEXT_MUTED, 110), BorderLayout.CENTER);
+				if (!already)
+				{
+					JPanel holder = new JPanel(new BorderLayout());
+					holder.setOpaque(false);
+					holder.add(new CodexButton("Save for it", true, () -> saveFor.accept(preview)), BorderLayout.NORTH);
+					save.add(holder, BorderLayout.EAST);
+				}
+				stack.add(save);
+			}
 		}
 		else if (kindIndex == 0)
 		{

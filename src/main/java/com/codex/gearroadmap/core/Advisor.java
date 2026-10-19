@@ -75,6 +75,12 @@ public final class Advisor
 	/** The roadmap for one target. */
 	public Roadmap plan(Collection<Gear> ownedGear, Fighter fighter, Target target, Prices prices, long coins)
 	{
+		return plan(ownedGear, fighter, target, prices, coins, null);
+	}
+
+	/** The roadmap for one target, with the player's savings goal priced and weighed against it. */
+	public Roadmap plan(Collection<Gear> ownedGear, Fighter fighter, Target target, Prices prices, long coins, Savings.Goal goal)
+	{
 		Set<Gear> owned = new LinkedHashSet<>(ownedGear);
 		Planner.Best start = planner.optimise(owned, fighter, target);
 		double base = start.dps();
@@ -138,7 +144,70 @@ public final class Advisor
 				leaps.add(o);
 			}
 		}
-		return new Roadmap(target, start, path, cut(free, SIDE_LIST + 2), cut(locked, SIDE_LIST), leaps, coins);
+		Roadmap map = new Roadmap(target, start, path, cut(free, SIDE_LIST + 2), cut(locked, SIDE_LIST), leaps, coins);
+		return goal == null ? map : map.withGoal(goal(owned, fighter, target, prices, start, goal), owns(owned, goal));
+	}
+
+	/**
+	 * A savings goal as it stands against this target: what is still to buy and the damage it
+	 * adds to the loadout owned now, which may be nothing here. Null when a piece is unknown or
+	 * has no price at the moment.
+	 */
+	Roadmap.Option goal(Set<Gear> owned, Fighter fighter, Target target, Prices prices, Planner.Best start, Savings.Goal goal)
+	{
+		if (goal == null || !goal.isValid())
+		{
+			return null;
+		}
+		List<Gear> pieces = new ArrayList<>();
+		Map<String, Integer> req = new HashMap<>();
+		String note = null;
+		for (int id : goal.getIds())
+		{
+			Gear g = data.gear(id);
+			if (g == null)
+			{
+				return null;
+			}
+			if (!pieces.contains(g))
+			{
+				pieces.add(g);
+			}
+			CatalogueEntry entry = data.entry(g);
+			if (entry != null)
+			{
+				entry.getRequirements().forEach((k, v) -> req.merge(k, v, Math::max));
+				note = pieces.size() == 1 ? entry.getNote() : null;
+			}
+		}
+		Candidate c = new Candidate(goal.getName(), pieces, req, null, note, pieces.size() == 1 && pieces.get(0).getSlot() == Gear.AMMO);
+		long cost = cost(c, owned, prices);
+		if (cost < 0)
+		{
+			return null;
+		}
+		Planner.Plan after = planner.withAdded(start, owned, pieces, fighter, target);
+		double gain = Math.max(0, after.dps() - start.dps());
+		return new Roadmap.Option(c.name, pieces, c.icon(), cost, gain, start.dps(), gain > 0 ? after : start.best(),
+			fighter.missing(req), null, note, c.ammo);
+	}
+
+	/** Whether every piece of a goal is owned already, any variant of it counting. */
+	boolean owns(Set<Gear> owned, Savings.Goal goal)
+	{
+		if (goal == null || !goal.isValid())
+		{
+			return false;
+		}
+		for (int id : goal.getIds())
+		{
+			Gear g = data.gear(id);
+			if (g == null || !owned.contains(g))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Greedy road: the best damage per coin, then again from the gear that leaves. */

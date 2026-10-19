@@ -96,6 +96,16 @@ public final class Format
 		return m + "m " + r + "s";
 	}
 
+	/** A slayer task's name with a capital first letter, as the game lists it: "Abyssal demons". */
+	public static String task(String task)
+	{
+		if (task == null || task.isEmpty())
+		{
+			return "";
+		}
+		return Character.toUpperCase(task.charAt(0)) + task.substring(1);
+	}
+
 	/** What each point of DPS costs on this upgrade: "85k per DPS". */
 	public static String value(long cost, double gain)
 	{

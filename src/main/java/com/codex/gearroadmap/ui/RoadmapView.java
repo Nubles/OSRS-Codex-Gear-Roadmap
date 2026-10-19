@@ -3,6 +3,7 @@ package com.codex.gearroadmap.ui;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.Savings;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.function.Consumer;
@@ -17,7 +18,7 @@ final class RoadmapView
 	{
 	}
 
-	static StackPanel build(Report report, ItemIcons icons, Runnable openTargets, Consumer<Roadmap.Option> preview)
+	static StackPanel build(Report report, ItemIcons icons, Runnable openTargets, Consumer<Roadmap.Option> preview, Runnable clearGoal)
 	{
 		StackPanel stack = new StackPanel(5, 8);
 		Roadmap map = report.getRoadmap();
@@ -37,6 +38,11 @@ final class RoadmapView
 			stack.add(Rows.reason(com.codex.gearroadmap.ui.Mark.Kind.NOTE,
 				"Open your bank once so the roadmap knows all the gear you own, not just what you carry."));
 		}
+		Savings.View savings = report.getSavings();
+		if (savings != null)
+		{
+			stack.add(GoalCard.build(savings, map.getTarget().getName(), icons, clearGoal));
+		}
 		stack.add(new RoadChart(map, icons));
 
 		Result.Kind kind = map.getNow().best().getResult().getKind();
@@ -52,7 +58,8 @@ final class RoadmapView
 			{
 				Roadmap.Option o = step.getOption();
 				rank++;
-				stack.add(UpgradeRow.build(o, UpgradeRow.Mode.STEP, rank, step.isAffordable(), kind, icons, () -> preview.accept(o)));
+				stack.add(goal(UpgradeRow.build(o, UpgradeRow.Mode.STEP, rank, step.isAffordable(), kind, icons, map.getTarget(),
+					() -> preview.accept(o)), o, savings));
 				kind = o.getAfter().getResult().getKind();
 			}
 		}
@@ -62,7 +69,7 @@ final class RoadmapView
 			stack.add(new SectionHeader("Free upgrades", "earned, not bought"));
 			for (Roadmap.Option o : map.getFree())
 			{
-				stack.add(UpgradeRow.build(o, UpgradeRow.Mode.FREE, 0, true, now, icons, () -> preview.accept(o)));
+				stack.add(UpgradeRow.build(o, UpgradeRow.Mode.FREE, 0, true, now, icons, map.getTarget(), () -> preview.accept(o)));
 			}
 		}
 		if (!map.getLeaps().isEmpty())
@@ -70,7 +77,8 @@ final class RoadmapView
 			stack.add(new SectionHeader("Big leaps", "most DPS"));
 			for (Roadmap.Option o : map.getLeaps())
 			{
-				stack.add(UpgradeRow.build(o, UpgradeRow.Mode.LEAP, 0, o.getCost() <= map.getCoins(), now, icons, () -> preview.accept(o)));
+				stack.add(goal(UpgradeRow.build(o, UpgradeRow.Mode.LEAP, 0, o.getCost() <= map.getCoins(), now, icons, map.getTarget(),
+					() -> preview.accept(o)), o, savings));
 			}
 		}
 		if (!map.getLocked().isEmpty())
@@ -78,11 +86,23 @@ final class RoadmapView
 			stack.add(new SectionHeader("Unlock by training"));
 			for (Roadmap.Option o : map.getLocked())
 			{
-				stack.add(UpgradeRow.build(o, UpgradeRow.Mode.LOCKED, 0, false, now, icons, () -> preview.accept(o)));
+				stack.add(goal(UpgradeRow.build(o, UpgradeRow.Mode.LOCKED, 0, false, now, icons, map.getTarget(),
+					() -> preview.accept(o)), o, savings));
 			}
 		}
 		stack.add(Rows.note(footnote(report), 190));
 		return stack;
+	}
+
+	/** The upgrade the player is saving for wears a gilt rim wherever it appears. */
+	private static Card goal(Card row, Roadmap.Option o, Savings.View savings)
+	{
+		if (savings != null && savings.getOption().getName().equals(o.getName()))
+		{
+			row.highlighted(true);
+			row.setToolTipText(row.getToolTipText().replace("</html>", "<br>Your savings goal</html>"));
+		}
+		return row;
 	}
 
 	/** What the numbers assume, in a sentence or three. */
@@ -105,6 +125,10 @@ final class RoadmapView
 			.append(report.getBoosts() == null ? "no boosts" : report.getBoosts().toLowerCase())
 			.append(" and your best unlocked prayers.");
 		Boolean slayer = report.getSlayer();
+		if (report.getSavings() == null && !report.isIronman() && report.getRoadmap() != null && !report.getRoadmap().getPath().isEmpty())
+		{
+			text.append(" Click an upgrade and press Save for it to make it your savings goal.");
+		}
 		if (slayer != null)
 		{
 			String name = report.getRoadmap() == null ? "this target" : report.getRoadmap().getTarget().getName();
@@ -136,7 +160,18 @@ final class RoadmapView
 		sub.setBorder(new EmptyBorder(3, 0, 0, 0));
 		sub.setToolTipText(r.getKind() == null ? null : "Your best setup hits up to " + r.getMaxHit() + " and lands "
 			+ Format.percent(r.getAccuracy()) + " of its attacks");
-		card.add(sub, BorderLayout.SOUTH);
+		JPanel lines = new JPanel(new BorderLayout());
+		lines.setOpaque(false);
+		lines.add(sub, BorderLayout.NORTH);
+		if (report.isFollowingTask())
+		{
+			JLabel task = Ui.label("On your slayer task" + (report.getTaskName() == null ? "" : ": " + Format.task(report.getTaskName())),
+				Theme.small(), Theme.TEAL);
+			task.setBorder(new EmptyBorder(2, 0, 0, 0));
+			task.setToolTipText("The roadmap follows your slayer task. Pick a target the task does not cover to aim elsewhere until your next task");
+			lines.add(task, BorderLayout.SOUTH);
+		}
+		card.add(lines, BorderLayout.SOUTH);
 		return card;
 	}
 }

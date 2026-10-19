@@ -26,6 +26,7 @@ public class GearRoadmapPanel extends PluginPanel
 
 	private final ItemIcons icons;
 	private final Consumer<String> onAim;
+	private final Consumer<Roadmap.Option> onGoal;
 	private final Crest crest = new Crest();
 	private final Segmented tabs = new Segmented(true, "Roadmap", "Loadout", "Targets");
 	private final Segmented kinds = new Segmented(false, LoadoutView.KINDS);
@@ -42,11 +43,16 @@ public class GearRoadmapPanel extends PluginPanel
 	private String search = "";
 	private Roadmap.Option preview;
 
-	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim)
+	/**
+	 * @param onAim called with a target's name when the player picks it
+	 * @param onGoal called with an upgrade to save for, or null to clear the goal
+	 */
+	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim, Consumer<Roadmap.Option> onGoal)
 	{
 		super(false);
 		this.icons = icons;
 		this.onAim = onAim;
+		this.onGoal = onGoal;
 		setLayout(new BorderLayout());
 		setBackground(Theme.INK);
 
@@ -155,7 +161,7 @@ public class GearRoadmapPanel extends PluginPanel
 	private void rebuild()
 	{
 		crest.update(report, playerName);
-		replace(roadmap, RoadmapView.build(report, icons, () -> showTab(2), this::preview));
+		replace(roadmap, RoadmapView.build(report, icons, () -> showTab(2), this::preview, () -> onGoal.accept(null)));
 		rebuildLoadout();
 		rebuildTargets();
 	}
@@ -165,6 +171,12 @@ public class GearRoadmapPanel extends PluginPanel
 		kindHolder.setVisible(preview == null);
 		replace(loadout, LoadoutView.build(report, kinds.getSelected(), preview, icons, () ->
 		{
+			preview = null;
+			rebuildLoadout();
+			showTab(0);
+		}, option ->
+		{
+			onGoal.accept(option);
 			preview = null;
 			rebuildLoadout();
 			showTab(0);
