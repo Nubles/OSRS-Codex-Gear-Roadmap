@@ -228,7 +228,13 @@ public final class Fights
 				{
 					continue;
 				}
-				Target t = byKey.get(key(line.name != null ? line.name : e.getKey()));
+				// Chronicle's key is the folded name (Dusk files under "grotesque guardians"); the line's own
+				// name is only the first one the game gave it.
+				Target t = e.getKey() == null ? null : byKey.get(key(e.getKey()));
+				if (t == null && line.name != null)
+				{
+					t = byKey.get(key(line.name));
+				}
 				int n = line.count();
 				if (t != null && n > 0)
 				{

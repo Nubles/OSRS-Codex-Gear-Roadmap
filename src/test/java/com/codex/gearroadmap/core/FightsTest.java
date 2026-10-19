@@ -58,6 +58,28 @@ public class FightsTest
 	}
 
 	@Test
+	public void killsAreMatchedByChroniclesKeyNotTheNameTheLootGaveThem()
+	{
+		// Session Chronicle's journal exactly as its own code saves it (pinned by Chronicle's SavedShapeTest):
+		// the Grotesque Guardians drop their loot as Dusk, so the line is named "Dusk" under the key
+		// "grotesque guardians". Matching by the name alone lost every Guardians kill.
+		String journal = "[{\"startedAt\":" + (NOW - DAY) + ",\"lastSeenAt\":" + (NOW - DAY) + ",\"endedAt\":" + (NOW - DAY)
+			+ ",\"playedMs\":0,\"player\":\"Zezima\",\"skills\":{},\"loot\":{},\"kills\":{"
+			+ "\"bird nest\":{\"name\":\"Bird nest\",\"looted\":3,\"firstKc\":0,\"lastKc\":0,\"event\":true},"
+			+ "\"grotesque guardians\":{\"name\":\"Dusk\",\"looted\":2,\"firstKc\":41,\"lastKc\":42,"
+			+ "\"counters\":{\"grotesque guardians\":[41,42]},\"event\":false},"
+			+ "\"abyssal demon\":{\"name\":\"Abyssal demon\",\"looted\":1,\"firstKc\":0,\"lastKc\":0,\"event\":false}},"
+			+ "\"moments\":[],\"deaths\":0,\"otherLoot\":0,\"otherDrops\":0,\"tripCount\":0,\"tripMs\":0,\"bestTripMs\":0}]";
+		List<Fights.Logged> sessions = new Gson().fromJson(journal, new TypeToken<List<Fights.Logged>>()
+		{
+		}.getType());
+		Fights.Tally tally = Fights.tally(sessions, data.targets(), NOW);
+		assertEquals(2, (int) tally.getKills().get(data.target("Grotesque Guardians")));
+		assertEquals(1, (int) tally.getKills().get(data.target("Abyssal demon")));
+		assertEquals(2, tally.getKills().size());
+	}
+
+	@Test
 	public void aSessionInBothJournalAndCurrentCountsOnce()
 	{
 		// Chronicle files a session into the journal a moment before it rewrites "current", so for
