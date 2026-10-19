@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -332,6 +333,74 @@ public final class Advisor
 			}
 		}
 		return ids;
+	}
+
+	/**
+	 * Upgrades weighed across where the player really fights: the fighting time each would save over a
+	 * month like the last one, at the targets that took the most of it. Ranked by time saved per coin,
+	 * like the road; only upgrades the player can wear now and can buy are weighed.
+	 */
+	public List<Fights.Pick> fights(Collection<Gear> ownedGear, Fighter fighter, Fights.Tally tally, Prices prices)
+	{
+		if (tally == null || tally.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+		Set<Gear> owned = new LinkedHashSet<>(ownedGear);
+		Map<Target, Planner.Best> starts = new LinkedHashMap<>();
+		for (Target t : tally.getKills().keySet())
+		{
+			if (starts.size() >= Fights.TARGETS)
+			{
+				break;
+			}
+			Planner.Best best = planner.optimise(owned, fighter, t);
+			if (best.dps() > 0)
+			{
+				starts.put(t, best);
+			}
+		}
+		List<Fights.Pick> picks = new ArrayList<>();
+		Map<Fights.Pick, Double> value = new HashMap<>();
+		for (Candidate c : candidates(owned))
+		{
+			if (c.earn != null || fighter.missing(c.requirements) != null)
+			{
+				continue;
+			}
+			long cost = cost(c, owned, prices);
+			if (cost <= 0)
+			{
+				continue;
+			}
+			double total = 0;
+			Map<String, Double> where = new HashMap<>();
+			for (Map.Entry<Target, Planner.Best> e : starts.entrySet())
+			{
+				Target t = e.getKey();
+				Planner.Best best = e.getValue();
+				Planner.Plan after = planner.withAdded(best, owned, c.pieces, fighter, t);
+				if (after.dps() <= best.dps() + 1e-9)
+				{
+					continue;
+				}
+				int kills = tally.getKills().get(t);
+				double saved = Fights.seconds(kills, t, best.dps()) - Fights.seconds(kills, t, after.dps());
+				total += saved;
+				where.put(t.getName(), saved);
+			}
+			if (total < Fights.MIN_SECONDS)
+			{
+				continue;
+			}
+			List<String> names = new ArrayList<>(where.keySet());
+			names.sort(Comparator.comparingDouble((String n) -> -where.get(n)));
+			Fights.Pick pick = new Fights.Pick(c.name, c.icon(), cost, total, names);
+			picks.add(pick);
+			value.put(pick, total / cost);
+		}
+		picks.sort(Comparator.comparingDouble((Fights.Pick p) -> -value.get(p)));
+		return cut(picks, Fights.PICKS);
 	}
 
 	/** Every target's best loadout, for the Targets tab. */

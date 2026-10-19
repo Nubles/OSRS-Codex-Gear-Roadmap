@@ -2,6 +2,7 @@ package com.codex.gearroadmap.ui;
 
 import com.codex.gearroadmap.core.Loadout;
 import com.codex.gearroadmap.core.Planner;
+import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
@@ -130,6 +131,28 @@ final class LoadoutView
 		{
 			stack.add(Rows.check(slayer ? Mark.Kind.GOOD : Mark.Kind.NOTE, slayer ? "On task" : "Off task",
 				slayer ? "Slayer helmet bonus counts" : "No slayer helmet bonus", null));
+		}
+		if (preview == null && kindIndex == 0 && !report.getLevels().isEmpty())
+		{
+			// Training is an upgrade too: the next level in each skill that adds damage, in the same gear.
+			stack.add(new SectionHeader("Levels that pay", "same gear"));
+			boolean priced = false;
+			for (Levels.Step step : report.getLevels())
+			{
+				String what = (step.isNewMaxHit() ? "Max hit " + step.getMaxHit() : "Lands more often") + ", " + Format.fine(step.getShare()) + " DPS";
+				boolean worth = step.getWorth() > 0 && !report.isIronman();
+				priced |= worth;
+				Card row = Rows.line(new Mark(Mark.Kind.GOOD, 14), step.getSkill() + " " + step.getTo(), what,
+					worth ? Ui.label(Format.coins(step.getWorth()), Theme.small(), Theme.GOLD) : null, null);
+				row.setToolTipText("<html>" + step.getSkill() + " " + step.getFrom() + " to " + step.getTo() + " adds "
+					+ Format.gain(step.getGain()) + " DPS against " + Ui.escape(map.getTarget().getName()) + " in this loadout."
+					+ (worth ? "<br>The road ahead pays about that much for the same damage." : "") + "</html>");
+				stack.add(row);
+			}
+			if (priced)
+			{
+				stack.add(Rows.note("Beside each, what the road ahead would charge in gear for the same damage.", 190));
+			}
 		}
 		if (preview == null)
 		{

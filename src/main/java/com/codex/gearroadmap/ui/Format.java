@@ -96,6 +96,20 @@ public final class Format
 		return m + "m " + r + "s";
 	}
 
+	/** "1h 18m", "34m": a longer stretch of time, to the minute. */
+	public static String span(double seconds)
+	{
+		long m = Math.round(Math.max(0, seconds) / 60);
+		return m >= 60 ? m / 60 + "h " + m % 60 + "m" : m + "m";
+	}
+
+	/** "+0.8%", "+12%": a share to one place below ten percent. */
+	public static String fine(double share)
+	{
+		double pct = Math.max(0, share) * 100;
+		return pct < 10 ? "+" + String.format(java.util.Locale.ENGLISH, "%.1f", pct) + "%" : "+" + Math.round(pct) + "%";
+	}
+
 	/** A slayer task's name with a capital first letter, as the game lists it: "Abyssal demons". */
 	public static String task(String task)
 	{

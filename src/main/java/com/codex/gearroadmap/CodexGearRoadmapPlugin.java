@@ -3,6 +3,8 @@ package com.codex.gearroadmap;
 import com.codex.gearroadmap.core.Advisor;
 import com.codex.gearroadmap.core.Aim;
 import com.codex.gearroadmap.core.Fighter;
+import com.codex.gearroadmap.core.Fights;
+import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Savings;
@@ -18,8 +20,10 @@ import com.codex.gearroadmap.ui.Sigil;
 import com.codex.gearroadmap.ui.Theme;
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
+import com.google.gson.reflect.TypeToken;
 import com.google.inject.Provides;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -88,6 +92,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
 	static final String LEDGER_GROUP = "codexledger";
 	static final String LEDGER_KEY = "ledger";
+	/** Codex Session Chronicle's journal and live session, read only, for where the player fights. */
+	static final String CHRONICLE_GROUP = "codexsessionchronicle";
+	static final String CHRONICLE_JOURNAL = "journal";
+	static final String CHRONICLE_CURRENT = "current";
+	private static final Type LOGGED_LIST = new TypeToken<List<Fights.Logged>>()
+	{
+	}.getType();
 	private static final Skill[] SKILLS = {
 		Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC, Skill.PRAYER, Skill.HITPOINTS, Skill.AGILITY,
 	};
@@ -149,6 +160,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private long inventoryCoins;
 	private Boolean ancients;
 	private boolean dirty;
+	/** Codex Session Chronicle's filed sessions for this account, or empty without it. */
+	private List<Fights.Logged> chronicle = Collections.emptyList();
 	private boolean coinsDirty;
 	private int ticksSinceAnalysis;
 	private final Map<Skill, Integer> realLevels = new HashMap<>();
@@ -281,6 +294,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		claimed.clear();
 		goal = null;
 		worth = null;
+		chronicle = Collections.emptyList();
 		goalAffordable = null;
 		goalAnnounced = false;
 		taskDismissed = null;
@@ -314,6 +328,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		claimed.clear();
 		goal = null;
 		worth = null;
+		chronicle = Collections.emptyList();
 		goalAffordable = null;
 		goalAnnounced = false;
 		taskDismissed = null;
@@ -333,6 +348,19 @@ public class CodexGearRoadmapPlugin extends Plugin
 			{
 				readWorth();
 				coinsDirty = true;
+			}
+			return;
+		}
+		if (CHRONICLE_GROUP.equals(event.getGroup()))
+		{
+			// Session Chronicle filed a session: where the player fights may have moved.
+			if (CHRONICLE_JOURNAL.equals(event.getKey()) && profile != null && profile.equals(event.getProfile()))
+			{
+				clientThread.invoke(() ->
+				{
+					readChronicle();
+					dirty = true;
+				});
 			}
 			return;
 		}
@@ -555,6 +583,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		profile = key;
 		loadGoal();
 		readWorth();
+		readChronicle();
 		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY);
 		if (json == null || json.isEmpty())
 		{
@@ -818,6 +847,38 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 	}
 
+	/** Reads Codex Session Chronicle's journal for this account; never writes it. Empty when it is not installed. */
+	private void readChronicle()
+	{
+		chronicle = readLogged(CHRONICLE_JOURNAL, true);
+	}
+
+	/** One of Chronicle's saved values as sessions: the journal is a list, the live session one. */
+	private List<Fights.Logged> readLogged(String key, boolean list)
+	{
+		String json = configManager.getRSProfileConfiguration(CHRONICLE_GROUP, key);
+		if (json == null || json.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+		try
+		{
+			if (list)
+			{
+				List<Fights.Logged> read = gson.fromJson(json, LOGGED_LIST);
+				return read == null ? Collections.emptyList() : read;
+			}
+			Fights.Logged one = gson.fromJson(json, Fights.Logged.class);
+			return one == null ? Collections.emptyList() : Collections.singletonList(one);
+		}
+		catch (RuntimeException e)
+		{
+			// Another plugin's format may change under us; without it there is simply no "where you fight".
+			log.debug("Could not read Codex Session Chronicle's journal", e);
+			return Collections.emptyList();
+		}
+	}
+
 	/** Adds the savings goal's standing to a report, and says so once the player's coins reach it. */
 	private Report dress(Report report)
 	{
@@ -973,6 +1034,9 @@ public class CodexGearRoadmapPlugin extends Plugin
 		Target aim = target;
 		// Ironmen cannot buy, so they have no savings goal.
 		Savings.Goal saving = ironman ? null : goal;
+		List<Fights.Logged> sessions = new ArrayList<>(chronicle);
+		sessions.addAll(readLogged(CHRONICLE_CURRENT, false));
+		Fights.Tally tally = sessions.isEmpty() ? null : Fights.tally(sessions, data.targets(), System.currentTimeMillis());
 		int ticket = generation.incrementAndGet();
 		executor.execute(() ->
 		{
@@ -988,9 +1052,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 				{
 					survey = cached;
 					lastRoadmap = map;
+					// Ironmen cannot buy, so there is nothing to weigh for them.
+					List<Fights.Pick> fights = ironman ? Collections.emptyList()
+						: advisor.fights(owned, fighter, tally, id -> prices.getOrDefault(id, 0L));
 					Report planned = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
 						.withAccount(ironman, seasonal, task, slayer)
-						.withTask(following, taskTargets, shownTask);
+						.withTask(following, taskTargets, shownTask)
+						.withExtras(tally, fights, Levels.ahead(advisor.planner().calc(), map, fighter));
 					// The goal's standing is settled on the client thread, where the goal and coins live.
 					clientThread.invokeLater(() ->
 					{

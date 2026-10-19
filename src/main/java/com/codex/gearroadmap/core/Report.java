@@ -21,6 +21,9 @@ public final class Report
 	private boolean following;
 	private String taskName;
 	private List<String> taskTargets = Collections.emptyList();
+	private Fights.Tally tally;
+	private List<Fights.Pick> fights = Collections.emptyList();
+	private List<Levels.Step> levels = Collections.emptyList();
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -68,6 +71,37 @@ public final class Report
 		return r;
 	}
 
+	/**
+	 * A copy that knows where the player fights (from Codex Session Chronicle), the upgrades that save
+	 * the most time there, and the levels worth training for the aimed target.
+	 */
+	public Report withExtras(Fights.Tally tally, List<Fights.Pick> fights, List<Levels.Step> levels)
+	{
+		Report r = copy(roadmap);
+		r.tally = tally;
+		r.fights = fights == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(fights));
+		r.levels = levels == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(levels));
+		return r;
+	}
+
+	/** Kills by target over the last month from Codex Session Chronicle, or null when it is not installed. */
+	public Fights.Tally getTally()
+	{
+		return tally;
+	}
+
+	/** Upgrades weighed across where the player fights, best value first. */
+	public List<Fights.Pick> getFights()
+	{
+		return fights;
+	}
+
+	/** The next level worth training in each skill behind the best loadout, best value first. */
+	public List<Levels.Step> getLevels()
+	{
+		return levels;
+	}
+
 	/** A copy with the savings goal's standing, or none. */
 	public Report withSavings(Savings.View savings)
 	{
@@ -87,6 +121,9 @@ public final class Report
 		r.following = following;
 		r.taskName = taskName;
 		r.taskTargets = taskTargets;
+		r.tally = tally;
+		r.fights = fights;
+		r.levels = levels;
 		return r;
 	}
 

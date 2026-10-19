@@ -190,7 +190,7 @@ public class GearRoadmapPanel extends PluginPanel
 		{
 			showTab(0);
 			onAim.accept(name);
-		}));
+		}, icons));
 	}
 
 	private static void replace(JScrollPane scroll, JComponent view)
