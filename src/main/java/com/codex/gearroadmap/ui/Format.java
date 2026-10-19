@@ -10,9 +10,9 @@ public final class Format
 	}
 
 	/**
-	 * "850", "60.0k", "1.4M", "12.0M", "1.6B"; "Free" for nothing at all. Every figure past a thousand
-	 * carries one decimal, zero or not, so prices side by side read alike ("9.9M" beside "12.0M",
-	 * never "12M").
+	 * "850", "8,240", "60k", "1.4M", "12.0M", "1.60B"; "Free" for nothing at all. One rule across the
+	 * Codex plugins: thousands whole, millions with one decimal and billions with two, zero or not,
+	 * so prices side by side read alike ("9.9M" beside "12.0M", never "12M").
 	 */
 	public static String coins(long gp)
 	{
@@ -20,25 +20,25 @@ public final class Format
 		{
 			return "Free";
 		}
-		if (gp < 1_000)
+		if (gp < 10_000)
 		{
-			return String.valueOf(gp);
+			return String.format(Locale.ENGLISH, "%,d", gp);
 		}
-		// A figure that rounds up to a thousand of one unit is written in the next ("1.0M", not "1000.0k").
-		if (gp < 999_950)
+		// A figure that rounds up to a thousand of one unit is written in the next ("1.0M", not "1000k").
+		if (gp < 999_500)
 		{
-			return fixed(gp / 1_000.0) + "k";
+			return Math.round(gp / 1_000.0) + "k";
 		}
 		if (gp < 999_950_000)
 		{
-			return fixed(gp / 1_000_000.0) + "M";
+			return fixed(gp / 1_000_000.0, 1) + "M";
 		}
-		return fixed(gp / 1_000_000_000.0) + "B";
+		return fixed(gp / 1_000_000_000.0, 2) + "B";
 	}
 
-	private static String fixed(double value)
+	private static String fixed(double value, int places)
 	{
-		return String.format(Locale.ENGLISH, "%.1f", value);
+		return String.format(Locale.ENGLISH, "%." + places + "f", value);
 	}
 
 	/** Damage per second to two places. */

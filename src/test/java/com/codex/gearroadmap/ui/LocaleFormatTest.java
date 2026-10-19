@@ -39,11 +39,15 @@ public class LocaleFormatTest
 		assertEquals("12.0M", Format.coins(12_000_000));
 		assertEquals("9.9M", Format.coins(9_900_000));
 		assertEquals("156.0M", Format.coins(156_000_000));
-		assertEquals("60.0k", Format.coins(60_000));
-		assertEquals("160.4k", Format.coins(160_400));
+		// Thousands whole and billions to two places, as Ledger and Session Chronicle write them.
+		assertEquals("60k", Format.coins(60_000));
+		assertEquals("300k", Format.coins(300_000));
+		assertEquals("160k", Format.coins(160_400));
 		assertEquals("850", Format.coins(850));
-		assertEquals("1.0M", Format.coins(999_960));
-		assertEquals("1.6B", Format.coins(1_600_000_000L));
+		assertEquals("8,240", Format.coins(8_240));
+		assertEquals("999k", Format.coins(999_499));
+		assertEquals("1.0M", Format.coins(999_500));
+		assertEquals("1.60B", Format.coins(1_600_000_000L));
 		assertEquals("Free", Format.coins(0));
 	}
 }
