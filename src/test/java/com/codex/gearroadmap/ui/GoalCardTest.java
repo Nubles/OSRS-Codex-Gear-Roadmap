@@ -40,15 +40,14 @@ public class GoalCardTest
 		assertEquals("Your coins cover it. Buy it whenever you like.",
 			GoalCard.paceLine(Savings.of(dhcb, false, 60_000_000, null, NOW)));
 		assertEquals("You own it now. Clear this to pick your next goal.", GoalCard.paceLine(Savings.of(dhcb, true, 0, null, NOW)));
-		assertEquals("50M to go. With Codex Ledger, this also says when you will get there.",
+		assertEquals("50M to go. Codex Ledger can tell you when.",
 			GoalCard.paceLine(Savings.of(dhcb, false, 10_000_000, null, NOW)));
-		assertEquals("50M to go. About 17 days at this week's pace (net worth +3M a day).",
+		assertEquals("50M to go, about 17 days at +3M a day.",
 			GoalCard.paceLine(Savings.of(dhcb, false, 10_000_000, growing(3_000_000, 20_000_000), NOW)));
-		assertEquals("50M to go. About a day at this week's pace (net worth +60M a day)."
-				+ " Your net worth of 200M would cover it if you sold other things.",
+		assertEquals("50M to go, about a day at +60M a day. Your 200M net worth covers it.",
 			GoalCard.paceLine(Savings.of(dhcb, false, 10_000_000, growing(60_000_000, 200_000_000), NOW)));
 		assertTrue(GoalCard.paceLine(Savings.of(dhcb, false, 10_000_000, growing(-1_000, 90_000_000), NOW))
-			.endsWith("no pace to go by. Your net worth of 90M would cover it if you sold other things."));
+			.endsWith("has not grown this week. Your 90M net worth covers it."));
 		assertEquals("50M to go. Codex Ledger needs a day of history to tell when.",
 			GoalCard.paceLine(Savings.of(dhcb, false, 10_000_000, new Savings.Worth(12_000_000, null), NOW)));
 	}

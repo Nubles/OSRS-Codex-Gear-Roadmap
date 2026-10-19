@@ -3,6 +3,7 @@ package com.codex.gearroadmap.ui;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Savings;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
@@ -34,20 +35,20 @@ final class GoalCard
 		badge.setOpaque(false);
 		badge.add(new IconBadge(o.getIcon().getId(), icons, true), BorderLayout.NORTH);
 		top.add(badge, BorderLayout.WEST);
-		JPanel names = new JPanel();
+		// The button shares the caption's line, so the upgrade's name gets the card's full width.
+		JPanel names = new JPanel(new BorderLayout(0, 1));
 		names.setOpaque(false);
-		names.setLayout(new BoxLayout(names, BoxLayout.Y_AXIS));
-		names.add(Ui.label(view.isOwned() ? "SAVED FOR" : "SAVING FOR", Theme.small(), done ? Theme.TEAL : Theme.GOLD));
+		JPanel caption = new JPanel(new BorderLayout(6, 0));
+		caption.setOpaque(false);
+		caption.add(Ui.label(view.isOwned() ? "SAVED FOR" : "SAVING FOR", Theme.small(), done ? Theme.TEAL : Theme.GOLD), BorderLayout.WEST);
+		caption.add(new CodexButton("Clear", false, onClear), BorderLayout.EAST);
+		names.add(caption, BorderLayout.NORTH);
 		JLabel name = Ui.label(o.getName(), Theme.body(), Theme.TEXT);
 		name.setToolTipText(o.getName());
-		names.add(name);
-		names.setMinimumSize(new Dimension(10, 10));
-		names.setPreferredSize(new Dimension(10, names.getPreferredSize().height));
+		name.setMinimumSize(new Dimension(10, 10));
+		name.setPreferredSize(new Dimension(10, name.getPreferredSize().height));
+		names.add(name, BorderLayout.CENTER);
 		top.add(names, BorderLayout.CENTER);
-		JPanel clear = new JPanel(new BorderLayout());
-		clear.setOpaque(false);
-		clear.add(new CodexButton("Clear", false, onClear), BorderLayout.NORTH);
-		top.add(clear, BorderLayout.EAST);
 		card.add(top, BorderLayout.NORTH);
 
 		JPanel body = new JPanel();
@@ -68,12 +69,18 @@ final class GoalCard
 		body.add(numbers);
 
 		JLabel pace = Ui.wrapped(paceLine(view), Theme.small(), done ? Theme.TEAL : Theme.TEXT_MUTED, 180);
+		if (view.getPerDay() != null)
+		{
+			pace.setToolTipText("From Codex Ledger: your net worth grew " + Format.coins(Math.max(0, view.getPerDay()))
+				+ " a day on average over the last week");
+		}
 		pace.setBorder(new EmptyBorder(3, 0, 0, 0));
 		pace.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		body.add(pace);
 
 		String[] gain = gainLine(o, target);
-		JLabel gainLabel = Ui.label(gain[0], Theme.small(), gain[1] == null ? Theme.kind(o.getAfter().getResult().getKind()) : Theme.EMBER);
+		Color gainColor = gain[1] != null ? Theme.EMBER : o.getGain() <= 0 ? Theme.TEXT_FAINT : Theme.kind(o.getAfter().getResult().getKind());
+		JLabel gainLabel = Ui.label(gain[0], Theme.small(), gainColor);
 		gainLabel.setBorder(new EmptyBorder(3, 0, 0, 0));
 		gainLabel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		body.add(gainLabel);
@@ -95,26 +102,24 @@ final class GoalCard
 		{
 			return "Your coins cover it. Buy it whenever you like.";
 		}
-		String rest = Format.coins(view.getRemaining()) + " to go.";
+		String rest = Format.coins(view.getRemaining()) + " to go";
 		if (!view.hasLedger())
 		{
-			return rest + " With Codex Ledger, this also says when you will get there.";
+			return rest + ". Codex Ledger can tell you when.";
 		}
-		String worth = view.getWorth() >= view.getCost()
-			? " Your net worth of " + Format.coins(view.getWorth()) + " would cover it if you sold other things." : "";
+		String worth = view.getWorth() >= view.getCost() ? " Your " + Format.coins(view.getWorth()) + " net worth covers it." : "";
 		Long perDay = view.getPerDay();
 		if (perDay == null)
 		{
-			return rest + " Codex Ledger needs a day of history to tell when." + worth;
+			return rest + ". Codex Ledger needs a day of history to tell when." + worth;
 		}
 		if (perDay <= 0)
 		{
-			return rest + " Your net worth has not grown this week, so there is no pace to go by." + worth;
+			return rest + ". Your net worth has not grown this week." + worth;
 		}
 		int days = view.getDays();
-		String when = days < 0 ? "Not within years at this week's pace"
-			: days <= 1 ? "About a day at this week's pace" : "About " + days + " days at this week's pace";
-		return rest + " " + when + " (net worth +" + Format.coins(perDay) + " a day)." + worth;
+		String when = days < 0 ? "years away" : days <= 1 ? "about a day" : "about " + days + " days";
+		return rest + ", " + when + " at +" + Format.coins(perDay) + " a day." + worth;
 	}
 
 	/** What the goal does against the aimed target; the second value is set when it is out of reach by level. */

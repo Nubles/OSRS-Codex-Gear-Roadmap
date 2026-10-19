@@ -340,6 +340,21 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			plaque.clear();
 		}
+		if (CodexGearRoadmapConfig.TARGET.equals(event.getKey()))
+		{
+			// A target typed in the settings is a choice too: one the task does not cover stops following it.
+			String chosen = event.getNewValue();
+			clientThread.invoke(() ->
+			{
+				Report report = lastReport;
+				if (client.getGameState() == GameState.LOGGED_IN && report != null && !report.getTaskTargets().isEmpty()
+					&& !report.getTaskTargets().contains(chosen))
+				{
+					taskDismissed = taskKey();
+				}
+				dirty = true;
+			});
+		}
 		dirty = true;
 	}
 

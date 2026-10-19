@@ -165,7 +165,7 @@ final class RoadmapView
 		lines.add(sub, BorderLayout.NORTH);
 		if (report.isFollowingTask())
 		{
-			JLabel task = Ui.label("On your slayer task" + (report.getTaskName() == null ? "" : ": " + Format.task(report.getTaskName())),
+			JLabel task = Ui.label(report.getTaskName() == null ? "On your slayer task" : "On task: " + Format.task(report.getTaskName()),
 				Theme.small(), Theme.TEAL);
 			task.setBorder(new EmptyBorder(2, 0, 0, 0));
 			task.setToolTipText("The roadmap follows your slayer task. Pick a target the task does not cover to aim elsewhere until your next task");
