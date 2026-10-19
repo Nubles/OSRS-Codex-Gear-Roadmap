@@ -39,7 +39,8 @@ final class RoadmapView
 		Roadmap map = report.getRoadmap();
 		if (!report.isLoggedIn())
 		{
-			stack.add(Rows.note("Log in to see the gear upgrades that will speed up your kills the most for every coin.", 190));
+			stack.add(Rows.empty("Your road starts at login", "Log in and Gear Roadmap reads the gear you own and your levels, "
+				+ "then lays out the upgrades that speed up your kills the most for every coin."));
 			return stack;
 		}
 		if (map == null)
@@ -112,6 +113,29 @@ final class RoadmapView
 		outgrown(stack, report.getOutgrown(), map, icons);
 		stack.add(Rows.note(footnote(report), 190));
 		return stack;
+	}
+
+	/** The road as a picture to share: two buttons above the tab's footnote, and a line once one is used. */
+	static void shareCard(StackPanel stack, String note, Runnable save, Runnable copy)
+	{
+		// The footnote on what the numbers assume stays the last thing on the tab.
+		int at = Math.max(0, stack.getComponentCount() - 1);
+		stack.add(new SectionHeader("Share your road"), at++);
+		Card card = new Card(new BorderLayout(0, 6));
+		card.setBorder(new EmptyBorder(8, 10, 8, 10));
+		card.add(Ui.wrapped("Your loadout, the road ahead and your goal on a gilt card, ready to post.", Theme.small(), Theme.TEXT_MUTED, 176),
+			BorderLayout.NORTH);
+		JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 0, 0));
+		buttons.setOpaque(false);
+		buttons.add(new CodexButton("Save card", true, save));
+		buttons.add(javax.swing.Box.createHorizontalStrut(6));
+		buttons.add(new CodexButton("Copy", false, copy));
+		card.add(buttons, BorderLayout.CENTER);
+		if (note != null)
+		{
+			card.add(Ui.wrapped(note, Theme.small(), Theme.TEAL, 176), BorderLayout.SOUTH);
+		}
+		stack.add(card, at);
 	}
 
 	/** Owned gear no best loadout wears, and what selling it puts toward the road. */

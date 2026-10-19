@@ -22,11 +22,16 @@ It is the fourth plugin in the **Codex** suite, after [Codex Navigator](https://
 - **Levels that pay.** The Loadout tab lists the next Strength, Attack, Ranged or Magic level that would raise your damage in the gear you already wear, and the Prayer or Defence level that unlocks a stronger prayer (Piety at 70 Defence, say), with the new max hit or prayer and what the road ahead would charge in coins for the same extra damage.
 - **Put on.** The Loadout tab compares what you are wearing with the best you own against your target: the pieces to put on, weapon first, whether each is in your inventory or your bank, and the damage the change adds. When you are already wearing it, it says so.
 - **Outgrown.** At the foot of the Roadmap tab, the combat gear you own that none of your best loadouts wear, for any style against any target, with what it sells for and how much of your next upgrade that would pay. Gear you can't wield yet, ammunition, pieces under 50k and gear kept for what it does (dragonfire shields, slayer and tank gear, special attack weapons, teleport jewellery), skilling tools and anything untradeable are never listed. Not shown to ironmen.
+- **Share your road.** At the foot of the Roadmap tab, **Save card** or **Copy** turns your road into a gilt card to post: your name and target, the damage you do now against the road's end with kill times and max hits, today's loadout slot by slot, every stop on a winding road with its item, price and damage (lit gold as far as your coins go), your savings goal with the days it should take by [Codex Ledger](https://github.com/Nubles/OSRS-Codex-Ledger), and the buy that would have saved you the most time where [Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle) says you fight. The card is drawn only when you press a button, and saved wherever you choose with RuneLite's file chooser.
 - **Upgrade plaque.** When you get an upgrade from your road, a gilt plaque shows the damage it adds and what is next. A matching line can go to the chat box too.
 
 <p align="center">
   <img src="docs/screenshots/preview.png" width="225" alt="Previewing an upgrade">
   <img src="docs/screenshots/plaque.png" width="300" alt="Upgrade plaque">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/road-card.png" width="360" alt="A road card">
 </p>
 
 <p align="center">
@@ -50,7 +55,7 @@ Open your bank once so Gear Roadmap knows everything you own; with [Codex Bank S
 
 ## Rules posture
 
-Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. With Codex Ledger installed it also reads, and never writes, the net worth history Ledger saves in your RuneLite profile, with Codex Session Chronicle installed it reads, and never writes, the kills Chronicle logged, and with Codex Bank Steward installed it reads, and never writes, the bank Steward saved; without them, everything else works the same. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. Your bank is saved per account in your RuneLite profile and never leaves your computer.
+Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. With Codex Ledger installed it also reads, and never writes, the net worth history Ledger saves in your RuneLite profile, with Codex Session Chronicle installed it reads, and never writes, the kills Chronicle logged, and with Codex Bank Steward installed it reads, and never writes, the bank Steward saved; without them, everything else works the same. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. A road card is only written when you press Save and pick where it goes. Your bank is saved per account in your RuneLite profile and never leaves your computer.
 
 ## Credits
 

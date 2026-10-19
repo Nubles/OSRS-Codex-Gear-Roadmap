@@ -21,6 +21,7 @@ import com.codex.gearroadmap.overlay.UpgradePlaque;
 import com.codex.gearroadmap.ui.Format;
 import com.codex.gearroadmap.ui.GearRoadmapPanel;
 import com.codex.gearroadmap.ui.ItemIcons;
+import com.codex.gearroadmap.ui.ShareActions;
 import com.codex.gearroadmap.ui.Sigil;
 import com.codex.gearroadmap.ui.Theme;
 import com.google.gson.Gson;
@@ -30,6 +31,10 @@ import com.google.inject.Provides;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.awt.Toolkit;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -42,6 +47,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
+import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
@@ -80,6 +86,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
+import net.runelite.client.util.Filepath;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.AsyncBufferedImage;
 import org.slf4j.Logger;
@@ -259,6 +266,20 @@ public class CodexGearRoadmapPlugin extends Plugin
 		};
 		panel = new GearRoadmapPanel(icons, name -> clientThread.invoke(() -> aim(name)),
 			option -> clientThread.invoke(() -> setGoal(option)));
+		panel.setShare(new ShareActions()
+		{
+			@Override
+			public void save(BufferedImage card, String fileName)
+			{
+				saveCard(card, fileName);
+			}
+
+			@Override
+			public void copy(BufferedImage card)
+			{
+				copyCard(card);
+			}
+		});
 		navButton = NavigationButton.builder()
 			.tooltip("Codex Gear Roadmap")
 			.icon(Sigil.icon(16))
@@ -1312,6 +1333,64 @@ public class CodexGearRoadmapPlugin extends Plugin
 		if (target != null)
 		{
 			SwingUtilities.invokeLater(() -> target.update(report, name));
+		}
+	}
+
+	/** Asks where to save the road card with RuneLite's own file chooser, then writes it there; runs on the Swing thread. */
+	private void saveCard(BufferedImage card, String fileName)
+	{
+		GearRoadmapPanel view = panel;
+		List<Filepath> chosen = new Filepath.Chooser()
+			.setIsSave()
+			.setAcceptsFiles()
+			.setDialogTitle("Save road card")
+			.addExtensionFilter("PNG image", "png")
+			.setDefaultExtension("png")
+			.setFileName(fileName)
+			.showDialog(view);
+		if (chosen == null || chosen.isEmpty())
+		{
+			return;
+		}
+		Filepath target = chosen.get(0);
+		executor.execute(() ->
+		{
+			String note;
+			try (OutputStream out = target.openOutputStream())
+			{
+				ImageIO.write(card, "png", out);
+				note = "Saved as " + target.getFileName() + ".";
+			}
+			catch (IOException e)
+			{
+				log.warn("Could not save the road card", e);
+				note = "The card could not be saved: " + e.getMessage();
+			}
+			String shown = note;
+			GearRoadmapPanel p = panel;
+			if (p != null)
+			{
+				SwingUtilities.invokeLater(() -> p.shareNote(shown));
+			}
+		});
+	}
+
+	private void copyCard(BufferedImage card)
+	{
+		String note;
+		try
+		{
+			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new ImageTransfer(ImageTransfer.opaque(card)), null);
+			note = "Copied. Paste it anywhere you share pictures.";
+		}
+		catch (IllegalStateException e)
+		{
+			note = "The clipboard is busy, try again in a moment.";
+		}
+		GearRoadmapPanel p = panel;
+		if (p != null)
+		{
+			p.shareNote(note);
 		}
 	}
 }
