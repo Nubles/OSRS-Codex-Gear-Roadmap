@@ -103,7 +103,11 @@ final class TargetsView
 				.append(String.format(Locale.ENGLISH, "%,d", e.getValue()));
 			shown++;
 		}
-		stack.add(Rows.note(line.append(". Most time saved for the coins first.").toString(), 190));
+		JComponent note = Rows.note(line.append(". Most time saved for the coins first.").toString(), 190);
+		note.setToolTipText("<html>Each kill is weighed as it was fought: on a slayer task that covered it with the<br>"
+			+ "slayer helmet's bonus, off one without. Kills logged before Chronicle kept the task<br>"
+			+ "count Slayer creatures as on task and bosses as off.</html>");
+		stack.add(note);
 		List<Fights.Pick> picks = report.getFights();
 		if (picks.isEmpty())
 		{

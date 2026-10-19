@@ -4,6 +4,7 @@ import com.codex.gearroadmap.core.Advisor;
 import com.codex.gearroadmap.core.Aim;
 import com.codex.gearroadmap.core.Fighter;
 import com.codex.gearroadmap.core.Fights;
+import com.codex.gearroadmap.core.Holdings;
 import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
@@ -88,6 +89,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private static final Logger log = LoggerFactory.getLogger(CodexGearRoadmapPlugin.class);
 	/** Codex Plunder Pilot and Pest Control Pilot read the saved bank under this key: never rename it. */
 	static final String BANK_KEY = "bank";
+	/** When Gear Roadmap last saw its bank change, epoch ms, so it can tell whose bank is fresher. */
+	private static final String BANK_SEEN_KEY = "bankSeenAt";
 	private static final String GOAL_KEY = "goal";
 	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
 	static final String LEDGER_GROUP = "codexledger";
@@ -154,9 +157,18 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private NavigationButton navButton;
 
 	private String profile;
-	private Set<Integer> worn = Collections.emptySet();
-	private Set<Integer> inventory = Collections.emptySet();
+	/** Worn and carried gear by id, with how many of each (ammunition is counted by the stack). */
+	private Map<Integer, Long> worn = Collections.emptyMap();
+	private Map<Integer, Long> inventory = Collections.emptyMap();
 	private Bank bank;
+	/** Quantities of the banked gear as seen this login, or null while the bank is only known from a save. */
+	private Map<Integer, Long> bankCounts;
+	/** When the bank was last seen to change by this plugin, epoch ms; 0 when unknown. */
+	private long bankSeenAt;
+	/** Codex Bank Steward's shared bank for this account, or null without it. */
+	private Holdings.Shared steward;
+	/** The bank planned with: this plugin's own view or Bank Steward's, whichever is fresher. */
+	private Holdings holdings = Holdings.NONE;
 	private long inventoryCoins;
 	private Boolean ancients;
 	private boolean dirty;
@@ -282,8 +294,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 	{
 		profile = null;
 		bank = null;
-		worn = Collections.emptySet();
-		inventory = Collections.emptySet();
+		bankCounts = null;
+		bankSeenAt = 0;
+		steward = null;
+		holdings = Holdings.NONE;
+		worn = Collections.emptyMap();
+		inventory = Collections.emptyMap();
 		inventoryCoins = 0;
 		ancients = null;
 		lastRoadmap = null;
@@ -322,6 +338,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 	public void onRuneScapeProfileChanged(RuneScapeProfileChanged event)
 	{
 		bank = null;
+		bankCounts = null;
+		bankSeenAt = 0;
+		steward = null;
+		holdings = Holdings.NONE;
 		profile = null;
 		ancients = null;
 		survey = null;
@@ -348,6 +368,28 @@ public class CodexGearRoadmapPlugin extends Plugin
 			{
 				readWorth();
 				coinsDirty = true;
+			}
+			return;
+		}
+		if (Holdings.STEWARD_GROUP.equals(event.getGroup()))
+		{
+			// Bank Steward saw the bank: what is owned may have moved, though nothing was claimed here.
+			if (Holdings.STEWARD_KEY.equals(event.getKey()) && profile != null && profile.equals(event.getProfile()))
+			{
+				clientThread.invoke(() ->
+				{
+					Set<Integer> before = ownedIds();
+					long coinsBefore = coins();
+					readSteward();
+					if (!ownedIds().equals(before))
+					{
+						dirty = true;
+					}
+					else if (coins() != coinsBefore)
+					{
+						coinsDirty = true;
+					}
+				});
 			}
 			return;
 		}
@@ -400,7 +442,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			return;
 		}
 		// The first sight of the bank is not a claim: everything in it was simply unknown before.
-		boolean bankKnown = bank != null;
+		boolean bankKnown = holdings.isKnown();
 		Set<Integer> before = ownedIds();
 		long coinsBefore = coins();
 		readContainer(id);
@@ -521,12 +563,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			return;
 		}
-		Set<Integer> items = new TreeSet<>();
+		Map<Integer, Long> items = new HashMap<>();
 		for (Item item : container.getItems())
 		{
 			if (item.getId() > 0 && item.getQuantity() > 0 && data.gear(item.getId()) != null)
 			{
-				items.add(item.getId());
+				items.merge(item.getId(), (long) item.getQuantity(), Long::sum);
 			}
 		}
 		if (id == InventoryID.WORN)
@@ -541,13 +583,16 @@ public class CodexGearRoadmapPlugin extends Plugin
 		else
 		{
 			Bank seen = new Bank();
-			seen.items = items;
+			seen.items = new TreeSet<>(items.keySet());
 			seen.coins = coinsIn(container);
+			bankCounts = items;
+			bankSeenAt = System.currentTimeMillis();
 			if (bank == null || !bank.items.equals(seen.items) || bank.coins != seen.coins)
 			{
 				bank = seen;
 				saveBank();
 			}
+			choose();
 		}
 	}
 
@@ -557,20 +602,42 @@ public class CodexGearRoadmapPlugin extends Plugin
 		return container.count(ItemID.COINS) + 1000L * container.count(ItemID.PLATINUM);
 	}
 
+	/** Everything owned, worn, carried and banked; ammunition only as a stack worth bringing. */
 	private Set<Integer> ownedIds()
 	{
-		Set<Integer> ids = new HashSet<>(worn);
-		ids.addAll(inventory);
-		if (bank != null)
+		Map<Integer, Long> total = new HashMap<>(worn);
+		inventory.forEach((id, n) -> total.merge(id, n, Long::sum));
+		// A quantity never seen stays unknown, and an unknown stack counts whatever else is held.
+		holdings.getGear().forEach((id, n) -> total.merge(id, n, (a, b) -> a == Holdings.UNKNOWN || b == Holdings.UNKNOWN ? Holdings.UNKNOWN : a + b));
+		Set<Integer> ids = new HashSet<>();
+		total.forEach((id, n) ->
 		{
-			ids.addAll(bank.items);
-		}
+			Gear g = data.gear(id);
+			if (g != null && Holdings.enough(g.getSlot() == Gear.AMMO, n))
+			{
+				ids.add(id);
+			}
+		});
 		return ids;
 	}
 
 	private long coins()
 	{
-		return inventoryCoins + (bank == null ? 0 : bank.coins);
+		return inventoryCoins + holdings.getCoins();
+	}
+
+	/** Settles which bank to plan with, this plugin's own or Bank Steward's. */
+	private void choose()
+	{
+		holdings = Holdings.choose(bank == null ? null : bank.items, bank == null ? 0 : bank.coins, bankCounts, bankSeenAt,
+			steward, id -> data.gear(id) != null);
+	}
+
+	/** Reads Codex Bank Steward's shared bank for this account; never writes it. Null when it is not installed. */
+	private void readSteward()
+	{
+		steward = Holdings.readSteward(gson, configManager.getRSProfileConfiguration(Holdings.STEWARD_GROUP, Holdings.STEWARD_KEY));
+		choose();
 	}
 
 	private void loadBank()
@@ -585,21 +652,37 @@ public class CodexGearRoadmapPlugin extends Plugin
 		readWorth();
 		readChronicle();
 		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY);
-		if (json == null || json.isEmpty())
+		if (json != null && !json.isEmpty())
 		{
-			return;
-		}
-		try
-		{
-			Bank saved = gson.fromJson(json, Bank.class);
-			if (saved != null && saved.items != null)
+			try
 			{
-				bank = saved;
+				Bank saved = gson.fromJson(json, Bank.class);
+				if (saved != null && saved.items != null)
+				{
+					bank = saved;
+					bankCounts = null;
+					bankSeenAt = seenAt();
+				}
+			}
+			catch (JsonParseException e)
+			{
+				log.warn("Could not read the saved bank, waiting to see it again", e);
 			}
 		}
-		catch (JsonParseException e)
+		readSteward();
+	}
+
+	/** When the saved bank was seen, or 0 for a bank saved before the time was kept. */
+	private long seenAt()
+	{
+		String saved = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_SEEN_KEY);
+		try
 		{
-			log.warn("Could not read the saved bank, waiting to see it again", e);
+			return saved == null ? 0 : Long.parseLong(saved.trim());
+		}
+		catch (NumberFormatException e)
+		{
+			return 0;
 		}
 	}
 
@@ -612,6 +695,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		if (profile != null && bank != null)
 		{
 			configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, profile, BANK_KEY, gson.toJson(bank));
+			configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, profile, BANK_SEEN_KEY, Long.toString(bankSeenAt));
 		}
 	}
 
@@ -1023,7 +1107,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		boolean ironman = client.getVarbitValue(VarbitID.IRONMAN) > 0;
 		// Ironmen cannot buy, so their coins never put an upgrade in reach.
 		long coins = ironman ? 0 : coins();
-		boolean bankSeen = bank != null;
+		boolean bankSeen = holdings.isKnown();
 		boolean seasonal = client.getWorldType().contains(WorldType.SEASONAL);
 		String boosts = config.boost().toString();
 		String task = fighter.getTask().getTask();

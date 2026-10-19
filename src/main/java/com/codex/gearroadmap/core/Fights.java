@@ -22,6 +22,8 @@ public final class Fights
 {
 	/** Days of sessions counted. */
 	public static final int DAYS = 30;
+	private static final int ON = 0;
+	private static final int OFF = 1;
 	/** Fought targets weighed at most, the ones that took the most fighting time first. */
 	static final int TARGETS = 6;
 	/** Upgrades offered at most. */
@@ -63,6 +65,11 @@ public final class Fights
 		Map<String, int[]> counters;
 		/** True for loot from something opened rather than killed; null in older saves. */
 		Boolean event;
+		/**
+		 * Kills looted while a slayer task was assigned, by the task's name, and under "" those looted
+		 * with no task; null in sessions Chronicle saved before it kept them.
+		 */
+		Map<String, Integer> tasks;
 
 		Line()
 		{
@@ -104,19 +111,42 @@ public final class Fights
 	public static final class Tally
 	{
 		private final Map<Target, Integer> kills;
+		private final Map<Target, int[]> split;
 		private final int sessions;
 		private final int days;
 
 		Tally(Map<Target, Integer> kills, int sessions)
 		{
-			this(kills, sessions, DAYS);
+			this(kills, Collections.emptyMap(), sessions, DAYS);
 		}
 
-		Tally(Map<Target, Integer> kills, int sessions, int days)
+		Tally(Map<Target, Integer> kills, Map<Target, int[]> split, int sessions, int days)
 		{
 			this.kills = kills;
+			this.split = split;
 			this.sessions = sessions;
 			this.days = days;
+		}
+
+		/** Kills of a target made on a slayer task that covers it. */
+		public int onTask(Target t)
+		{
+			int[] s = split.get(t);
+			return s == null ? 0 : s[ON];
+		}
+
+		/** Kills of a target made with no task for it, as Chronicle saw. */
+		public int offTask(Target t)
+		{
+			int[] s = split.get(t);
+			return s == null ? 0 : s[OFF];
+		}
+
+		/** Kills of a target from before Chronicle kept the slayer task, or counted without loot. */
+		public int unknown(Target t)
+		{
+			Integer all = kills.get(t);
+			return all == null ? 0 : Math.max(0, all - onTask(t) - offTask(t));
 		}
 
 		/** Days the kills were counted over: fewer than {@link #DAYS} while the journal is younger than that. */
@@ -210,6 +240,7 @@ public final class Fights
 		}
 		long from = now - DAYS * 86_400_000L;
 		Map<Target, Integer> kills = new HashMap<>();
+		Map<Target, int[]> split = new HashMap<>();
 		int counted = 0;
 		long earliest = now;
 		// A session Chronicle has just filed can still be its live one for a moment: count it once.
@@ -240,6 +271,19 @@ public final class Fights
 				{
 					kills.merge(t, n, Integer::sum);
 					any = true;
+					if (line.tasks != null)
+					{
+						int[] s2 = split.computeIfAbsent(t, k -> new int[2]);
+						int known = 0;
+						for (Map.Entry<String, Integer> task : line.tasks.entrySet())
+						{
+							int k = task.getValue() == null ? 0 : Math.max(0, Math.min(task.getValue(), n - known));
+							known += k;
+							boolean covered = task.getKey() != null && !task.getKey().isEmpty()
+								&& SlayerTask.taskCovers(task.getKey(), t.getName());
+							s2[covered ? ON : OFF] += k;
+						}
+					}
 				}
 			}
 			counted += any ? 1 : 0;
@@ -255,7 +299,7 @@ public final class Fights
 		}
 		// A journal begun three days ago tells of three days, not a month.
 		int days = (int) Math.max(1, Math.min(DAYS, (now - earliest + 86_399_999L) / 86_400_000L));
-		return new Tally(Collections.unmodifiableMap(sorted), counted, days);
+		return new Tally(Collections.unmodifiableMap(sorted), split, counted, days);
 	}
 
 	/** Names as Chronicle files them and targets as the list names them, folded alike. */

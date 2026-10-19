@@ -347,18 +347,21 @@ public final class Advisor
 			return Collections.emptyList();
 		}
 		Set<Gear> owned = new LinkedHashSet<>(ownedGear);
-		Map<Target, Planner.Best> starts = new LinkedHashMap<>();
-		for (Target t : tally.getKills().keySet())
+		List<Start> starts = new ArrayList<>();
+		int targets = 0;
+		for (Map.Entry<Target, Integer> e : tally.getKills().entrySet())
 		{
-			if (starts.size() >= Fights.TARGETS)
+			if (targets >= Fights.TARGETS)
 			{
 				break;
 			}
-			Planner.Best best = planner.optimise(owned, fighter, t);
-			if (best.dps() > 0)
-			{
-				starts.put(t, best);
-			}
+			targets++;
+			Target t = e.getKey();
+			int all = e.getValue();
+			// Each kill is weighed as it was fought: on a task with the slayer helmet's bonus, off one without.
+			int helmet = helmetKills(fighter.getTask(), tally, t, all);
+			addStart(starts, owned, fighter.withTask(SlayerTask.ALWAYS), t, helmet);
+			addStart(starts, owned, fighter.withTask(SlayerTask.NEVER), t, all - helmet);
 		}
 		List<Fights.Pick> picks = new ArrayList<>();
 		Map<Fights.Pick, Double> value = new HashMap<>();
@@ -375,19 +378,17 @@ public final class Advisor
 			}
 			double total = 0;
 			Map<String, Double> where = new HashMap<>();
-			for (Map.Entry<Target, Planner.Best> e : starts.entrySet())
+			for (Start start : starts)
 			{
-				Target t = e.getKey();
-				Planner.Best best = e.getValue();
-				Planner.Plan after = planner.withAdded(best, owned, c.pieces, fighter, t);
-				if (after.dps() <= best.dps() + 1e-9)
+				Target t = start.target;
+				Planner.Plan after = planner.withAdded(start.best, owned, c.pieces, start.fighter, t);
+				if (after.dps() <= start.best.dps() + 1e-9)
 				{
 					continue;
 				}
-				int kills = tally.getKills().get(t);
-				double saved = Fights.seconds(kills, t, best.dps()) - Fights.seconds(kills, t, after.dps());
+				double saved = Fights.seconds(start.kills, t, start.best.dps()) - Fights.seconds(start.kills, t, after.dps());
 				total += saved;
-				where.put(t.getName(), saved);
+				where.merge(t.getName(), saved, Double::sum);
 			}
 			if (total < Fights.MIN_SECONDS * tally.getDays() / Fights.DAYS)
 			{
@@ -401,6 +402,56 @@ public final class Advisor
 		}
 		picks.sort(Comparator.comparingDouble((Fights.Pick p) -> -value.get(p)));
 		return cut(picks, Fights.PICKS);
+	}
+
+	/**
+	 * How many of a target's kills to weigh with the slayer helmet's bonus. With the setting on
+	 * always or never, all or none. With it following the task, the kills Chronicle saw made on a
+	 * task that covers the target, plus, for kills from before it kept the task, those a Slayer
+	 * creature (but not a boss) would most likely have been: today's task says nothing of them.
+	 */
+	static int helmetKills(SlayerTask setting, Fights.Tally tally, Target t, int all)
+	{
+		if (setting.getMode() != SlayerTask.Mode.SMART)
+		{
+			return setting.covers(t) ? all : 0;
+		}
+		if (!t.isSlayer())
+		{
+			return 0;
+		}
+		int unknown = SlayerTask.of(SlayerTask.Mode.SMART, null).covers(t) ? tally.unknown(t) : 0;
+		return Math.min(all, tally.onTask(t) + unknown);
+	}
+
+	private void addStart(List<Start> starts, Set<Gear> owned, Fighter fighter, Target t, int kills)
+	{
+		if (kills <= 0)
+		{
+			return;
+		}
+		Planner.Best best = planner.optimise(owned, fighter, t);
+		if (best.dps() > 0)
+		{
+			starts.add(new Start(t, fighter, best, kills));
+		}
+	}
+
+	/** Where a fought target's kills start from, for one slayer helmet assumption. */
+	private static final class Start
+	{
+		final Target target;
+		final Fighter fighter;
+		final Planner.Best best;
+		final int kills;
+
+		Start(Target target, Fighter fighter, Planner.Best best, int kills)
+		{
+			this.target = target;
+			this.fighter = fighter;
+			this.best = best;
+			this.kills = kills;
+		}
 	}
 
 	/** Every target's best loadout, for the Targets tab. */
