@@ -336,8 +336,8 @@ public final class Advisor
 	}
 
 	/**
-	 * Upgrades weighed across where the player really fights: the fighting time each would save over a
-	 * month like the last one, at the targets that took the most of it. Ranked by time saved per coin,
+	 * Upgrades weighed across where the player really fights: the fighting time each would have saved
+	 * over the tally's days, at the targets that took the most of it. Ranked by time saved per coin,
 	 * like the road; only upgrades the player can wear now and can buy are weighed.
 	 */
 	public List<Fights.Pick> fights(Collection<Gear> ownedGear, Fighter fighter, Fights.Tally tally, Prices prices)
@@ -389,7 +389,7 @@ public final class Advisor
 				total += saved;
 				where.put(t.getName(), saved);
 			}
-			if (total < Fights.MIN_SECONDS)
+			if (total < Fights.MIN_SECONDS * tally.getDays() / Fights.DAYS)
 			{
 				continue;
 			}

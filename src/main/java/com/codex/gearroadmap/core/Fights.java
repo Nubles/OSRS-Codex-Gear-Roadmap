@@ -26,7 +26,7 @@ public final class Fights
 	static final int TARGETS = 6;
 	/** Upgrades offered at most. */
 	static final int PICKS = 5;
-	/** Fighting time a month an upgrade must save to be offered at all. */
+	/** Fighting time an upgrade must save over a full window to be offered at all; less over a shorter one. */
 	static final double MIN_SECONDS = 10 * 60;
 
 	private Fights()
@@ -105,11 +105,24 @@ public final class Fights
 	{
 		private final Map<Target, Integer> kills;
 		private final int sessions;
+		private final int days;
 
 		Tally(Map<Target, Integer> kills, int sessions)
 		{
+			this(kills, sessions, DAYS);
+		}
+
+		Tally(Map<Target, Integer> kills, int sessions, int days)
+		{
 			this.kills = kills;
 			this.sessions = sessions;
+			this.days = days;
+		}
+
+		/** Days the kills were counted over: fewer than {@link #DAYS} while the journal is younger than that. */
+		public int getDays()
+		{
+			return days;
 		}
 
 		public Map<Target, Integer> getKills()
@@ -170,7 +183,7 @@ public final class Fights
 			return cost;
 		}
 
-		/** Fighting time saved over a month like the last one, in seconds. */
+		/** Fighting time it would have saved over the tally's days, in seconds. */
 		public double getSeconds()
 		{
 			return seconds;
@@ -198,6 +211,7 @@ public final class Fights
 		long from = now - DAYS * 86_400_000L;
 		Map<Target, Integer> kills = new HashMap<>();
 		int counted = 0;
+		long earliest = now;
 		// A session Chronicle has just filed can still be its live one for a moment: count it once.
 		Set<Long> seen = new HashSet<>();
 		for (Logged s : sessions)
@@ -223,6 +237,7 @@ public final class Fights
 				}
 			}
 			counted += any ? 1 : 0;
+			earliest = any ? Math.min(earliest, s.startedAt) : earliest;
 		}
 		List<Map.Entry<Target, Integer>> list = new ArrayList<>(kills.entrySet());
 		// Most fighting first: kills times hitpoints stands in for the time each took.
@@ -232,7 +247,9 @@ public final class Fights
 		{
 			sorted.put(e.getKey(), e.getValue());
 		}
-		return new Tally(Collections.unmodifiableMap(sorted), counted);
+		// A journal begun three days ago tells of three days, not a month.
+		int days = (int) Math.max(1, Math.min(DAYS, (now - earliest + 86_399_999L) / 86_400_000L));
+		return new Tally(Collections.unmodifiableMap(sorted), counted, days);
 	}
 
 	/** Names as Chronicle files them and targets as the list names them, folded alike. */
@@ -246,7 +263,7 @@ public final class Fights
 		return key;
 	}
 
-	/** Seconds of fighting a month the kills take at this damage per second. */
+	/** Seconds of fighting the kills take at this damage per second. */
 	static double seconds(int kills, Target t, double dps)
 	{
 		return dps <= 0 ? Double.POSITIVE_INFINITY : kills * t.getHp() / dps;

@@ -84,7 +84,7 @@ public final class Report
 		return r;
 	}
 
-	/** Kills by target over the last month from Codex Session Chronicle, or null when it is not installed. */
+	/** Kills by target over the last 30 days from Codex Session Chronicle, or null when it is not installed. */
 	public Fights.Tally getTally()
 	{
 		return tally;

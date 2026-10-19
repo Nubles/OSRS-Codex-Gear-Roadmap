@@ -88,7 +88,8 @@ final class TargetsView
 		{
 			return false;
 		}
-		stack.add(new SectionHeader("Where you fight", "last " + Fights.DAYS + " days"));
+		String span = tally.getDays() == 1 ? "the last day" : "the last " + tally.getDays() + " days";
+		stack.add(new SectionHeader("Where you fight", span.substring(4)));
 		StringBuilder line = new StringBuilder("Kills from Session Chronicle: ");
 		int shown = 0;
 		for (Map.Entry<Target, Integer> e : tally.getKills().entrySet())
@@ -102,21 +103,21 @@ final class TargetsView
 				.append(String.format(Locale.ENGLISH, "%,d", e.getValue()));
 			shown++;
 		}
-		stack.add(Rows.note(line.append('.').toString(), 190));
+		stack.add(Rows.note(line.append(". Most time saved for the coins first.").toString(), 190));
 		List<Fights.Pick> picks = report.getFights();
 		if (picks.isEmpty())
 		{
 			stack.add(Rows.note(report.isIronman() ? "Ironmen are shown the roadmap for each target instead."
-				: "Nothing you could buy now saves ten minutes a month there.", 190));
+				: "Nothing you could buy now would have saved you much time there.", 190));
 			return true;
 		}
 		for (Fights.Pick p : picks)
 		{
 			JLabel cost = Ui.label(Format.coins(p.getCost()), Theme.small(), Theme.GOLD);
 			Card row = Rows.line(new IconBadge(p.getIcon().getId(), icons, true), p.getName(),
-				"Saves " + Format.span(p.getSeconds()) + " a month", cost, null);
+				"Saves " + Format.span(p.getSeconds()) + " of fighting", cost, null);
 			StringBuilder tip = new StringBuilder("<html><b>").append(Ui.escape(p.getName())).append("</b><br>About ")
-				.append(Format.span(p.getSeconds())).append(" less fighting over a month like the last, mostly at ");
+				.append(Format.span(p.getSeconds())).append(" less fighting over ").append(span).append(", mostly at ");
 			List<String> where = p.getWhere();
 			for (int i = 0; i < where.size() && i < 3; i++)
 			{

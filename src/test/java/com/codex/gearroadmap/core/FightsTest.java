@@ -72,6 +72,19 @@ public class FightsTest
 	}
 
 	@Test
+	public void aShortJournalSaysHowManyDaysItCovers()
+	{
+		// Chronicle installed three days ago: the time saved is over those three days, not a month.
+		Map<String, Fights.Line> kills = new HashMap<>();
+		kills.put("vorkath", new Fights.Line("Vorkath", 10));
+		Fights.Tally tally = Fights.tally(Arrays.asList(new Fights.Logged(NOW - 3 * DAY + 3_600_000L, kills),
+			new Fights.Logged(NOW - DAY, kills)), data.targets(), NOW);
+		assertEquals(3, tally.getDays());
+		Fights.Tally old = Fights.tally(Collections.singletonList(new Fights.Logged(NOW - 29 * DAY - 1, kills)), data.targets(), NOW);
+		assertEquals(Fights.DAYS, old.getDays());
+	}
+
+	@Test
 	public void upgradesAreWeighedAcrossWhereThePlayerFights()
 	{
 		Map<Target, Integer> kills = new java.util.LinkedHashMap<>();
