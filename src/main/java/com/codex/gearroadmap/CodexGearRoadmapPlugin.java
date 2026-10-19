@@ -3,6 +3,7 @@ package com.codex.gearroadmap;
 import com.codex.gearroadmap.core.Advisor;
 import com.codex.gearroadmap.core.Aim;
 import com.codex.gearroadmap.core.Fighter;
+import com.codex.gearroadmap.core.Fighting;
 import com.codex.gearroadmap.core.Fights;
 import com.codex.gearroadmap.core.Holdings;
 import com.codex.gearroadmap.core.Levels;
@@ -12,6 +13,7 @@ import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.Swap;
 import com.codex.gearroadmap.core.SlayerTask;
+import com.codex.gearroadmap.core.TaskWatch;
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
@@ -41,10 +43,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
+import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
+import net.runelite.api.NPC;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.Player;
 import net.runelite.api.Quest;
@@ -184,8 +188,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private boolean wornDirty;
 	private int ticksSinceAnalysis;
 	private final Map<Skill, Integer> realLevels = new HashMap<>();
-	/** Which task the plan was made for; the kill count falls on every kill and must not re-plan each time. */
-	private String taskKey;
+	/** Which task the plan was made for, believed only once the varps settle after a login or hop. */
+	private final TaskWatch taskWatch = new TaskWatch();
+	/** The listed monster the player is fighting, offered as a one-click aim; built with the data. */
+	private Fighting fighting;
 	/** The upgrade the player is saving for, per account. */
 	private Savings.Goal goal;
 	/** Codex Ledger's net worth for this account, or null when it is not installed. */
@@ -241,6 +247,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		migrateConfig();
 		data = RoadmapData.load(gson);
 		advisor = new Advisor(data);
+		fighting = new Fighting(data.targets());
 		priceIds = advisor.priceIds();
 		ItemIcons icons = (itemId, onLoaded) ->
 		{
@@ -315,7 +322,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 		lastRoadmap = null;
 		lastReport = null;
 		realLevels.clear();
-		taskKey = null;
+		taskWatch.forget();
+		if (fighting != null)
+		{
+			fighting.clear();
+		}
+		showFighting();
 		survey = null;
 		claimed.clear();
 		goal = null;
@@ -331,7 +343,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
-		if (event.getGameState() == GameState.LOGIN_SCREEN)
+		GameState state = event.getGameState();
+		if (state == GameState.HOPPING || state == GameState.LOGGING_IN || state == GameState.CONNECTION_LOST)
+		{
+			// The varps are taken afresh in the new world; the task may blink to none and back meanwhile.
+			taskWatch.arrived();
+		}
+		if (state == GameState.LOGIN_SCREEN)
 		{
 			forget();
 			plaque.clear();
@@ -470,7 +488,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 			if (bankKnown)
 			{
 				checkGoal(before, after);
-				checkClaims(before, after);
+				if (taskWatch.isSettled())
+				{
+					// Just after a login or hop the containers fill in again: gear arriving then is no claim.
+					checkClaims(before, after);
+				}
 			}
 		}
 		else if (coins() != coinsBefore)
@@ -520,19 +542,47 @@ public class CodexGearRoadmapPlugin extends Plugin
 			|| event.getVarbitId() == -1 && TASK_VARPS.contains(event.getVarpId()))
 		{
 			// Only a new task, or the end of one, changes the plan; the count itself does not.
-			String key = taskKey();
-			if (!key.equals(taskKey))
-			{
-				taskKey = key;
-				if (key.isEmpty())
-				{
-					// The task is done: the next one is followed again, even if it is the same monster.
-					taskDismissed = null;
-					taskPick = null;
-					taskPickKey = null;
-				}
-				dirty = true;
-			}
+			taskChanged(taskWatch.seen(taskKey()));
+		}
+	}
+
+	private void taskChanged(TaskWatch.Change change)
+	{
+		if (change == TaskWatch.Change.ENDED)
+		{
+			// The task is done: the next one is followed again, even if it is the same monster.
+			taskDismissed = null;
+			taskPick = null;
+			taskPickKey = null;
+		}
+		if (change != TaskWatch.Change.NONE)
+		{
+			dirty = true;
+		}
+	}
+
+	/** Notes the listed monster the player is attacking, and lets go of one fought long ago; cheap, so every tick. */
+	private void watchFight()
+	{
+		Player me = client.getLocalPlayer();
+		Actor foe = me == null ? null : me.getInteracting();
+		long now = System.currentTimeMillis();
+		boolean changed = foe instanceof NPC && foe.getCombatLevel() > 0 && fighting.saw(foe.getName(), now);
+		changed |= fighting.expire(now);
+		if (changed)
+		{
+			showFighting();
+		}
+	}
+
+	private void showFighting()
+	{
+		Target t = fighting == null ? null : fighting.current();
+		String name = t == null ? null : t.getName();
+		GearRoadmapPanel target = panel;
+		if (target != null)
+		{
+			SwingUtilities.invokeLater(() -> target.setFighting(name));
 		}
 	}
 
@@ -562,6 +612,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			loadBank();
 		}
+		taskChanged(taskWatch.tick(taskKey()));
+		watchFight();
 		ticksSinceAnalysis++;
 		if (dirty && ticksSinceAnalysis >= ANALYSE_GAP_TICKS)
 		{

@@ -8,8 +8,11 @@ import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.util.Locale;
 import java.util.function.Consumer;
+import javax.swing.Box;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
@@ -22,6 +25,15 @@ final class RoadmapView
 	}
 
 	static StackPanel build(Report report, ItemIcons icons, Runnable openTargets, Consumer<Roadmap.Option> preview, Runnable clearGoal)
+	{
+		return build(report, icons, openTargets, preview, clearGoal, null);
+	}
+
+	/**
+	 * @param fight the offer to aim at the monster being fought, put under the target card; null for none
+	 */
+	static StackPanel build(Report report, ItemIcons icons, Runnable openTargets, Consumer<Roadmap.Option> preview, Runnable clearGoal,
+		JComponent fight)
 	{
 		StackPanel stack = new StackPanel(5, 8);
 		Roadmap map = report.getRoadmap();
@@ -36,6 +48,10 @@ final class RoadmapView
 			return stack;
 		}
 		stack.add(targetCard(report, openTargets));
+		if (fight != null)
+		{
+			stack.add(fight);
+		}
 		if (!report.isBankSeen())
 		{
 			stack.add(Rows.reason(com.codex.gearroadmap.ui.Mark.Kind.NOTE,
@@ -179,6 +195,51 @@ final class RoadmapView
 				: " No slayer helmet bonus against " + name + " without a task for it.");
 		}
 		return text.toString();
+	}
+
+	/**
+	 * The monster the player is fighting, when it is a listed target the road is not aimed at: what
+	 * their best gear does there, and a button to aim the road at it.
+	 *
+	 * @return the card, or null when there is nothing to offer
+	 */
+	static Card fightCard(Report report, String fighting, Runnable aim, Runnable hide)
+	{
+		Roadmap map = report.getRoadmap();
+		if (fighting == null || map == null || !report.isLoggedIn() || fighting.equals(map.getTarget().getName()))
+		{
+			return null;
+		}
+		String here = null;
+		for (Roadmap.Survey row : report.getSurvey())
+		{
+			if (row.getTarget().getName().equals(fighting))
+			{
+				Result r = row.getBest().best().getResult();
+				here = r.getKind() == null ? "Nothing you own can hurt it" : "Your best here: " + Format.dps(r.getDps()) + " DPS, " + r.getKind().toString().toLowerCase(Locale.ROOT);
+				break;
+			}
+		}
+		Card card = new Card(new BorderLayout(0, 4));
+		card.setBorder(new EmptyBorder(6, 10, 7, 10));
+		card.accent(Theme.TEAL);
+		JLabel title = Ui.label("Fighting " + fighting, Theme.body(), Theme.TEXT);
+		title.setMinimumSize(new Dimension(10, 10));
+		title.setPreferredSize(new Dimension(10, title.getPreferredSize().height));
+		card.add(title, BorderLayout.NORTH);
+		if (here != null)
+		{
+			card.add(Ui.label(here, Theme.small(), Theme.TEXT_MUTED), BorderLayout.CENTER);
+		}
+		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+		buttons.setOpaque(false);
+		buttons.add(new CodexButton("Aim the road here", true, aim));
+		buttons.add(Box.createHorizontalStrut(6));
+		buttons.add(new CodexButton("Hide", false, hide));
+		card.add(buttons, BorderLayout.SOUTH);
+		card.setToolTipText("<html>You are fighting " + Ui.escape(fighting) + ", but the road is aimed at " + Ui.escape(map.getTarget().getName())
+			+ ".<br>The road never moves on its own: aim it here if this is the fight you want gear for.</html>");
+		return card;
 	}
 
 	private static Card targetCard(Report report, Runnable openTargets)

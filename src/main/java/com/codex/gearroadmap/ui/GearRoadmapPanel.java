@@ -42,6 +42,9 @@ public class GearRoadmapPanel extends PluginPanel
 	private String playerName;
 	private String search = "";
 	private Roadmap.Option preview;
+	/** The listed monster being fought, and the one the player hid the offer for. */
+	private String fighting;
+	private String hiddenFight;
 
 	/**
 	 * @param onAim called with a target's name when the player picks it
@@ -129,6 +132,17 @@ public class GearRoadmapPanel extends PluginPanel
 		rebuild();
 	}
 
+	/** Called on the Swing thread with the listed monster the player is fighting, or null. */
+	public void setFighting(String fighting)
+	{
+		if (java.util.Objects.equals(this.fighting, fighting))
+		{
+			return;
+		}
+		this.fighting = fighting;
+		rebuildRoadmap();
+	}
+
 	/** Opens one tab, for previews and tests. */
 	public void showTab(int tab)
 	{
@@ -161,9 +175,20 @@ public class GearRoadmapPanel extends PluginPanel
 	private void rebuild()
 	{
 		crest.update(report, playerName);
-		replace(roadmap, RoadmapView.build(report, icons, () -> showTab(2), this::preview, () -> onGoal.accept(null)));
+		rebuildRoadmap();
 		rebuildLoadout();
 		rebuildTargets();
+	}
+
+	private void rebuildRoadmap()
+	{
+		String fight = fighting == null || fighting.equals(hiddenFight) ? null : fighting;
+		replace(roadmap, RoadmapView.build(report, icons, () -> showTab(2), this::preview, () -> onGoal.accept(null),
+			RoadmapView.fightCard(report, fight, () -> onAim.accept(fight), () ->
+			{
+				hiddenFight = fight;
+				rebuildRoadmap();
+			})));
 	}
 
 	private void rebuildLoadout()
