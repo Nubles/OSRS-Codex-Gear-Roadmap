@@ -20,6 +20,7 @@ import com.codex.gearroadmap.data.Target;
 import com.codex.gearroadmap.overlay.UpgradePlaque;
 import com.codex.gearroadmap.ui.Format;
 import com.codex.gearroadmap.ui.GearRoadmapPanel;
+import com.codex.gearroadmap.ui.IconWatch;
 import com.codex.gearroadmap.ui.ItemIcons;
 import com.codex.gearroadmap.ui.ShareActions;
 import com.codex.gearroadmap.ui.Sigil;
@@ -166,6 +167,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private RoadmapData data;
 	private Advisor advisor;
 	private Set<Integer> priceIds = Collections.emptySet();
+	/** Hands each item picture's load callback over only until it arrives. */
+	private final IconWatch iconWatch = new IconWatch();
 	private GearRoadmapPanel panel;
 	private NavigationButton navButton;
 
@@ -261,7 +264,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		ItemIcons icons = (itemId, onLoaded) ->
 		{
 			AsyncBufferedImage image = itemManager.getImage(itemId);
-			image.onLoaded(onLoaded);
+			// Only until it arrives: a loaded picture would run the callback again on every paint.
+			iconWatch.watch(image, onLoaded, image::onLoaded);
 			return image;
 		};
 		panel = new GearRoadmapPanel(icons, name -> clientThread.invoke(() -> aim(name)),
