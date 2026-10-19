@@ -82,11 +82,12 @@ import org.slf4j.LoggerFactory;
 public class CodexGearRoadmapPlugin extends Plugin
 {
 	private static final Logger log = LoggerFactory.getLogger(CodexGearRoadmapPlugin.class);
-	private static final String BANK_KEY = "bank";
+	/** Codex Plunder Pilot and Pest Control Pilot read the saved bank under this key: never rename it. */
+	static final String BANK_KEY = "bank";
 	private static final String GOAL_KEY = "goal";
 	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
-	private static final String LEDGER_GROUP = "codexledger";
-	private static final String LEDGER_KEY = "ledger";
+	static final String LEDGER_GROUP = "codexledger";
+	static final String LEDGER_KEY = "ledger";
 	private static final Skill[] SKILLS = {
 		Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC, Skill.PRAYER, Skill.HITPOINTS, Skill.AGILITY,
 	};
@@ -159,6 +160,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private volatile Savings.Worth worth;
 	/** Whether the goal was affordable at the last look; null until then, so a login never announces it. */
 	private Boolean goalAffordable;
+	/** Whether the goal was announced as in reach this login, so coins dipping and returning say it once. */
+	private boolean goalAnnounced;
 	/** The task the player turned away from by choosing another target, by task key. */
 	private String taskDismissed;
 	/** Which of the task's targets the player picked, and for which task. */
@@ -279,6 +282,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		goal = null;
 		worth = null;
 		goalAffordable = null;
+		goalAnnounced = false;
 		taskDismissed = null;
 		taskPick = null;
 		taskPickKey = null;
@@ -311,6 +315,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		goal = null;
 		worth = null;
 		goalAffordable = null;
+		goalAnnounced = false;
 		taskDismissed = null;
 		taskPick = null;
 		taskPickKey = null;
@@ -749,6 +754,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			goal = new Savings.Goal(option.getName(), ids);
 		}
 		goalAffordable = null;
+		goalAnnounced = false;
 		saveGoal();
 		dirty = true;
 	}
@@ -757,6 +763,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	{
 		goal = null;
 		goalAffordable = null;
+		goalAnnounced = false;
 		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, GOAL_KEY);
 		if (json == null || json.isEmpty())
 		{
@@ -821,8 +828,9 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 		Savings.View view = Savings.of(map.getGoal(), map.isGoalOwned(), coins(), worth, System.currentTimeMillis());
 		boolean affordable = view.isAffordable();
-		if (Boolean.FALSE.equals(goalAffordable) && affordable && !view.isOwned())
+		if (Savings.inReach(goalAffordable, goalAnnounced, view))
 		{
+			goalAnnounced = true;
 			announceGoal(view, map.getTarget().getName());
 		}
 		goalAffordable = affordable;

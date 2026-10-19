@@ -183,4 +183,63 @@ public class SavingsTest
 		assertEquals(2, g.getIds().size());
 		assertFalse(gson.fromJson("{\"name\":\"x\"}", Savings.Goal.class).isValid());
 	}
+
+	@Test
+	public void goalInReachIsSaidOnceNotEachTimeCoinsComeBack()
+	{
+		Roadmap.Option o = plan(Fixtures.midGame(data), goal("Dragon hunter crossbow")).getGoal();
+		Savings.View poor = Savings.of(o, false, 59_000_000, null, NOW);
+		Savings.View rich = Savings.of(o, false, 61_000_000, null, NOW);
+		assertFalse("the first look after login never announces", Savings.inReach(null, false, rich));
+		assertTrue(Savings.inReach(false, false, rich));
+		// Coins go into a Grand Exchange offer and come back: the goal was already announced.
+		assertFalse(Savings.inReach(false, true, rich));
+		assertFalse(Savings.inReach(true, false, rich));
+		assertFalse(Savings.inReach(false, false, poor));
+		assertFalse("owned is met, not in reach", Savings.inReach(false, false, Savings.of(o, true, 61_000_000, null, NOW)));
+	}
+
+	/** Codex Ledger's book as its main branch saves it, from a real Ledger: 2m a day for three days. */
+	private static final String LEDGER_MAIN = "{\"stores\":{\"BANK\":{\"seen\":1791115200000,\"items\":{\"995\":7000000,\"4151\":1}},\"INVENTORY\":{\"seen\":179085"
+		+ "6000000,\"items\":{\"385\":10}}},\"prices\":{\"385\":800,\"995\":1,\"4151\":1500000},\"history\":[{\"t\":17908560000"
+		+ "00,\"v\":2508000},{\"t\":1790942400000,\"v\":4508000},{\"t\":1791028800000,\"v\":6508000},{\"t\":1791115200000,\""
+		+ "v\":8508000}],\"days\":[{\"date\":\"2026-10-01\",\"open\":2508000,\"close\":2508000,\"high\":2508000,\"low\":250800"
+		+ "0,\"play\":0,\"market\":0,\"items\":{}},{\"date\":\"2026-10-02\",\"open\":2508000,\"close\":4508000,\"high\":4508000"
+		+ ",\"low\":2508000,\"play\":2000000,\"market\":0,\"items\":{\"995\":{\"q\":2000000,\"v\":2000000,\"d\":0}}},{\"date\":\"2"
+		+ "026-10-03\",\"open\":4508000,\"close\":6508000,\"high\":6508000,\"low\":4508000,\"play\":2000000,\"market\":0,\"it"
+		+ "ems\":{\"995\":{\"q\":2000000,\"v\":2000000,\"d\":0}}},{\"date\":\"2026-10-04\",\"open\":6508000,\"close\":8508000,\"h"
+		+ "igh\":8508000,\"low\":6508000,\"play\":2000000,\"market\":0,\"items\":{\"995\":{\"q\":2000000,\"v\":2000000,\"d\":0}}"
+		+ "}],\"total\":8508000,\"since\":1790856000000,\"exchange\":{}}";
+
+	/** The same book as Codex Ledger saves it with trades and deaths tracked: more fields, same total and history. */
+	private static final String LEDGER_TRADES = "{\"stores\":{\"BANK\":{\"seen\":1791115200000,\"items\":{\"995\":7000000,\"4151\":1}},\"INVENTORY\":{\"seen\":179085"
+		+ "6000000,\"items\":{\"385\":10}}},\"prices\":{\"385\":800,\"995\":1,\"4151\":1500000},\"history\":[{\"t\":17908560000"
+		+ "00,\"v\":2508000},{\"t\":1790942400000,\"v\":4508000},{\"t\":1791028800000,\"v\":6508000},{\"t\":1791115200000,\""
+		+ "v\":8508000}],\"days\":[{\"date\":\"2026-10-01\",\"open\":2508000,\"close\":2508000,\"high\":2508000,\"low\":250800"
+		+ "0,\"play\":0,\"market\":0,\"items\":{},\"ex\":0,\"loot\":0,\"used\":0,\"cin\":0,\"cout\":0,\"dead\":0,\"deals\":{},\"trad"
+		+ "es\":{\"bq\":0,\"bc\":0,\"sq\":0,\"sc\":0,\"tx\":0,\"p\":0,\"uq\":0,\"uc\":0}},{\"date\":\"2026-10-02\",\"open\":2508000,\"c"
+		+ "lose\":4508000,\"high\":4508000,\"low\":2508000,\"play\":2000000,\"market\":0,\"items\":{\"995\":{\"q\":2000000,\"v\""
+		+ ":2000000,\"d\":0,\"tq\":0,\"tv\":0}},\"ex\":0,\"loot\":0,\"used\":0,\"cin\":2000000,\"cout\":0,\"dead\":0,\"deals\":{},\""
+		+ "trades\":{\"bq\":0,\"bc\":0,\"sq\":0,\"sc\":0,\"tx\":0,\"p\":0,\"uq\":0,\"uc\":0}},{\"date\":\"2026-10-03\",\"open\":450800"
+		+ "0,\"close\":6508000,\"high\":6508000,\"low\":4508000,\"play\":2000000,\"market\":0,\"items\":{\"995\":{\"q\":2000000"
+		+ ",\"v\":2000000,\"d\":0,\"tq\":0,\"tv\":0}},\"ex\":0,\"loot\":0,\"used\":0,\"cin\":2000000,\"cout\":0,\"dead\":0,\"deals\":"
+		+ "{},\"trades\":{\"bq\":0,\"bc\":0,\"sq\":0,\"sc\":0,\"tx\":0,\"p\":0,\"uq\":0,\"uc\":0}},{\"date\":\"2026-10-04\",\"open\":65"
+		+ "08000,\"close\":8508000,\"high\":8508000,\"low\":6508000,\"play\":2000000,\"market\":0,\"items\":{\"995\":{\"q\":200"
+		+ "0000,\"v\":2000000,\"d\":0,\"tq\":0,\"tv\":0}},\"ex\":0,\"loot\":0,\"used\":0,\"cin\":2000000,\"cout\":0,\"dead\":0,\"dea"
+		+ "ls\":{},\"trades\":{\"bq\":0,\"bc\":0,\"sq\":0,\"sc\":0,\"tx\":0,\"p\":0,\"uq\":0,\"uc\":0}}],\"total\":8508000,\"since\":1"
+		+ "790856000000,\"exchange\":{},\"book\":{},\"slotsKnown\":false,\"lost\":{},\"lostUntil\":0}";
+
+	@Test
+	public void realLedgerSavesFromBothFormatsGiveTheSamePace()
+	{
+		Gson gson = new Gson();
+		for (String json : new String[]{LEDGER_MAIN, LEDGER_TRADES})
+		{
+			Savings.Worth worth = gson.fromJson(json, Savings.Worth.class);
+			assertEquals(8_508_000, worth.getTotal());
+			assertEquals(4, worth.getHistory().size());
+			long last = worth.getHistory().get(3).getTime();
+			assertEquals(Long.valueOf(2_000_000), Savings.pace(worth, last + 1000));
+		}
+	}
 }

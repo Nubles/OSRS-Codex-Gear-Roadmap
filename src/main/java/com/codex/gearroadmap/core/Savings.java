@@ -225,6 +225,19 @@ public final class Savings
 	}
 
 	/**
+	 * Whether to say a goal is now in reach: only when the coins have just come to cover it,
+	 * never on the first look after login, and once per goal per login, so coins dipping into a
+	 * Grand Exchange offer and back, or a price wobbling across the line, do not say it again.
+	 *
+	 * @param wasAffordable whether the goal was affordable at the last look, or null before the first
+	 * @param announced whether it was announced already since the goal was set or the player logged in
+	 */
+	public static boolean inReach(Boolean wasAffordable, boolean announced, View view)
+	{
+		return view != null && !announced && Boolean.FALSE.equals(wasAffordable) && view.isAffordable() && !view.isOwned();
+	}
+
+	/**
 	 * Net worth gained per day across the last week: from the first reading inside the window
 	 * to the latest, so one lucky drop counts for what it was rather than for every day after.
 	 * Null with less than a day of history to go on.
