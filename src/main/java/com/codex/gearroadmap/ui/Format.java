@@ -9,7 +9,11 @@ public final class Format
 	{
 	}
 
-	/** "850", "60k", "1.4M", "1.6B"; "Free" for nothing at all. */
+	/**
+	 * "850", "60.0k", "1.4M", "12.0M", "1.6B"; "Free" for nothing at all. Every figure past a thousand
+	 * carries one decimal, zero or not, so prices side by side read alike ("9.9M" beside "12.0M",
+	 * never "12M").
+	 */
 	public static String coins(long gp)
 	{
 		if (gp <= 0)
@@ -20,29 +24,21 @@ public final class Format
 		{
 			return String.valueOf(gp);
 		}
-		if (gp < 100_000)
+		// A figure that rounds up to a thousand of one unit is written in the next ("1.0M", not "1000.0k").
+		if (gp < 999_950)
 		{
-			return trim(gp / 1_000.0) + "k";
+			return fixed(gp / 1_000.0) + "k";
 		}
-		if (gp < 1_000_000)
+		if (gp < 999_950_000)
 		{
-			return Math.round(gp / 1_000.0) + "k";
+			return fixed(gp / 1_000_000.0) + "M";
 		}
-		if (gp < 1_000_000_000)
-		{
-			return trim(gp / 1_000_000.0) + "M";
-		}
-		return trim(gp / 1_000_000_000.0) + "B";
+		return fixed(gp / 1_000_000_000.0) + "B";
 	}
 
-	private static String trim(double value)
+	private static String fixed(double value)
 	{
-		if (value >= 100)
-		{
-			return String.valueOf(Math.round(value));
-		}
-		String text = String.format(Locale.ENGLISH, "%.1f", value);
-		return text.endsWith(".0") ? text.substring(0, text.length() - 2) : text;
+		return String.format(Locale.ENGLISH, "%.1f", value);
 	}
 
 	/** Damage per second to two places. */

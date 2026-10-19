@@ -254,17 +254,24 @@ public class GearRoadmapPanel extends PluginPanel
 		replace(roadmap, view);
 	}
 
-	/** The road card is drawn only when asked for, never as the road changes. */
-	private BufferedImage drawCard()
+	/**
+	 * The road card is drawn only when asked for, never as the road changes, and handed over once
+	 * the pictures of its loadout and stops are in, so no stop is saved as an empty ring.
+	 */
+	private void drawCard(java.util.function.Consumer<BufferedImage> deliver)
 	{
-		return RoadCard.render(report, showName ? playerName : null, icons, System.currentTimeMillis(), () -> { });
+		Report drawn = report;
+		String name = showName ? playerName : null;
+		long now = System.currentTimeMillis();
+		CardPictures.draw(icons, pictures -> RoadCard.render(drawn, name, pictures, now, null), deliver);
 	}
 
 	private void saveCard()
 	{
 		if (RoadCard.canDraw(report))
 		{
-			share.save(drawCard(), "Road to " + report.getRoadmap().getTarget().getName().replaceAll("[\\\\/:*?\"<>|]", "") + ".png");
+			String file = "Road to " + report.getRoadmap().getTarget().getName().replaceAll("[\\\\/:*?\"<>|]", "") + ".png";
+			drawCard(card -> share.save(card, file));
 		}
 	}
 
@@ -272,7 +279,7 @@ public class GearRoadmapPanel extends PluginPanel
 	{
 		if (RoadCard.canDraw(report))
 		{
-			share.copy(drawCard());
+			drawCard(share::copy);
 		}
 	}
 

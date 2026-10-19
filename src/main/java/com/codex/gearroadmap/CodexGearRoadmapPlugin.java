@@ -2,6 +2,7 @@ package com.codex.gearroadmap;
 
 import com.codex.gearroadmap.core.Advisor;
 import com.codex.gearroadmap.core.Aim;
+import com.codex.gearroadmap.core.Claims;
 import com.codex.gearroadmap.core.Fighter;
 import com.codex.gearroadmap.core.Fighting;
 import com.codex.gearroadmap.core.Fights;
@@ -106,6 +107,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** When Gear Roadmap last saw its bank change, epoch ms, so it can tell whose bank is fresher. */
 	private static final String BANK_SEEN_KEY = "bankSeenAt";
 	private static final String GOAL_KEY = "goal";
+	/** The upgrades picked up from the road, for the Roadmap's "Road behind" list. */
+	private static final String CLAIMS_KEY = "claims";
 	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
 	static final String LEDGER_GROUP = "codexledger";
 	static final String LEDGER_KEY = "ledger";
@@ -163,6 +166,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private final UpgradePlaque plaque = new UpgradePlaque();
 	private final AtomicInteger generation = new AtomicInteger();
 	private final Set<String> claimed = new HashSet<>();
+	/** The road behind: upgrades picked up, saved per account. */
+	private Claims claims = new Claims();
 
 	private RoadmapData data;
 	private Advisor advisor;
@@ -261,12 +266,22 @@ public class CodexGearRoadmapPlugin extends Plugin
 		advisor = new Advisor(data);
 		fighting = new Fighting(data.targets());
 		priceIds = advisor.priceIds();
-		ItemIcons icons = (itemId, onLoaded) ->
+		ItemIcons icons = new ItemIcons()
 		{
-			AsyncBufferedImage image = itemManager.getImage(itemId);
-			// Only until it arrives: a loaded picture would run the callback again on every paint.
-			iconWatch.watch(image, onLoaded, image::onLoaded);
-			return image;
+			@Override
+			public BufferedImage icon(int itemId, Runnable onLoaded)
+			{
+				AsyncBufferedImage image = itemManager.getImage(itemId);
+				// Only until it arrives: a loaded picture would run the callback again on every paint.
+				iconWatch.watch(image, onLoaded, image::onLoaded);
+				return image;
+			}
+
+			@Override
+			public boolean hasArrived(BufferedImage image)
+			{
+				return iconWatch.hasArrived(image);
+			}
 		};
 		panel = new GearRoadmapPanel(icons, name -> clientThread.invoke(() -> aim(name)),
 			option -> clientThread.invoke(() -> setGoal(option)));
@@ -358,6 +373,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		showFighting();
 		survey = null;
 		claimed.clear();
+		claims = new Claims();
 		goal = null;
 		worth = null;
 		chronicle = Collections.emptyList();
@@ -406,6 +422,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		ancients = null;
 		survey = null;
 		claimed.clear();
+		claims = new Claims();
 		goal = null;
 		worth = null;
 		chronicle = Collections.emptyList();
@@ -788,6 +805,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 		profile = key;
 		loadGoal();
+		loadClaims();
 		readWorth();
 		readChronicle();
 		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY);
@@ -936,6 +954,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private void announce(Roadmap map, int index, Roadmap.Option option)
 	{
 		String target = map.getTarget().getName();
+		claims.add(new Claims.Claim(option.getName(), option.getIcon().getId(), option.getGain(), target, System.currentTimeMillis()));
+		saveClaims();
 		String gain = Format.gain(option.getGain()) + " DPS against " + target;
 		List<Roadmap.Step> path = map.getPath();
 		String next = index + 1 < path.size()
@@ -1009,6 +1029,33 @@ public class CodexGearRoadmapPlugin extends Plugin
 		goalAnnounced = false;
 		saveGoal();
 		dirty = true;
+	}
+
+	private void loadClaims()
+	{
+		claims = new Claims();
+		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, CLAIMS_KEY);
+		if (json == null || json.isEmpty())
+		{
+			return;
+		}
+		try
+		{
+			Claims saved = gson.fromJson(json, Claims.class);
+			claims = saved == null ? new Claims() : saved;
+		}
+		catch (JsonParseException e)
+		{
+			log.warn("Could not read the saved road behind", e);
+		}
+	}
+
+	private void saveClaims()
+	{
+		if (profile != null)
+		{
+			configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, profile, CLAIMS_KEY, gson.toJson(claims));
+		}
 	}
 
 	private void loadGoal()
@@ -1105,7 +1152,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** Adds the savings goal's standing to a report, and says so once the player's coins reach it. */
 	private Report dress(Report report)
 	{
-		report = report.withSwap(swap(report.getRoadmap()));
+		report = report.withSwap(swap(report.getRoadmap())).withClaims(claims.recent());
 		Roadmap map = report.getRoadmap();
 		if (map == null || goal == null || report.isIronman() || map.getGoal() == null)
 		{

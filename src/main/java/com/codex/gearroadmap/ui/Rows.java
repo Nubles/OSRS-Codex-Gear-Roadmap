@@ -42,6 +42,12 @@ public final class Rows
 
 	public static Card line(JComponent lead, String title, String detail, JComponent trailing, Color accent)
 	{
+		return line(lead, title, detail, trailing, accent, 0);
+	}
+
+	/** @param wrap above 0, the width the detail wraps at instead of being cut short */
+	public static Card line(JComponent lead, String title, String detail, JComponent trailing, Color accent, int wrap)
+	{
 		Card card = new Card(new BorderLayout(8, 0));
 		card.setBorder(new EmptyBorder(6, 8, 6, 8));
 		if (accent != null)
@@ -64,7 +70,7 @@ public final class Rows
 		text.add(name);
 		if (detail != null && !detail.isEmpty())
 		{
-			JLabel sub = Ui.label(detail, Theme.small(), Theme.TEXT_MUTED);
+			JLabel sub = wrap > 0 ? Ui.wrapped(detail, Theme.small(), Theme.TEXT_MUTED, wrap) : Ui.label(detail, Theme.small(), Theme.TEXT_MUTED);
 			sub.setToolTipText(detail);
 			text.add(sub);
 		}

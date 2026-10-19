@@ -1,5 +1,6 @@
 package com.codex.gearroadmap.ui;
 
+import com.codex.gearroadmap.core.Claims;
 import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
@@ -9,6 +10,7 @@ import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import javax.swing.Box;
@@ -111,6 +113,7 @@ final class RoadmapView
 			}
 		}
 		outgrown(stack, report.getOutgrown(), map, icons);
+		roadBehind(stack, report.getClaims(), icons);
 		stack.add(Rows.note(footnote(report), 190));
 		return stack;
 	}
@@ -136,6 +139,47 @@ final class RoadmapView
 			card.add(Ui.wrapped(note, Theme.small(), Theme.TEAL, 176), BorderLayout.SOUTH);
 		}
 		stack.add(card, at);
+	}
+
+	/** Claims listed on the tab; the save keeps a few more. */
+	static final int BEHIND = 5;
+	private static final java.time.format.DateTimeFormatter DAY = java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale.ENGLISH);
+
+	/** The road behind: the upgrades picked up from the road, newest first, with what each added and when. */
+	static void roadBehind(StackPanel stack, List<Claims.Claim> claims, ItemIcons icons)
+	{
+		if (claims == null || claims.isEmpty())
+		{
+			return;
+		}
+		stack.add(new SectionHeader("Road behind", claims.size() + " claimed"));
+		for (int i = 0; i < claims.size() && i < BEHIND; i++)
+		{
+			Claims.Claim c = claims.get(i);
+			Card row = Rows.line(new IconBadge(c.getIcon(), icons, true), firstPiece(c.getName()), behindDetail(c),
+				Ui.label(claimDay(c.getAt()), Theme.small(), Theme.TEXT_MUTED), i == 0 ? Theme.GOLD : null, 118);
+			row.setToolTipText("<html>" + Ui.escape(c.getName()) + "<br>Picked up " + Ui.escape(claimDay(c.getAt()))
+				+ ", adding " + Format.gain(c.getGain()) + " DPS against " + Ui.escape(c.getTarget()) + " at the time.</html>");
+			stack.add(row);
+		}
+	}
+
+	/** "+0.81 DPS at Vorkath", or "Pair, +0.23 DPS at Vorkath" for two pieces bought together. */
+	static String behindDetail(Claims.Claim c)
+	{
+		return (c.getName().contains(" + ") ? "Pair, " : "") + Format.gain(c.getGain()) + " DPS at " + c.getTarget();
+	}
+
+	/** A pair bought together ("A + B") is listed by its first piece; the tooltip names both. */
+	static String firstPiece(String name)
+	{
+		int plus = name.indexOf(" + ");
+		return plus < 0 ? name : name.substring(0, plus);
+	}
+
+	private static String claimDay(long at)
+	{
+		return DAY.format(java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault()));
 	}
 
 	/** Owned gear no best loadout wears, and what selling it puts toward the road. */

@@ -28,6 +28,9 @@ final class UpgradeRow
 		LEAP
 	}
 
+	/** The width the words of a row have beside its picture in the side panel. */
+	private static final int TEXT_W = 150;
+
 	private UpgradeRow()
 	{
 	}
@@ -64,6 +67,8 @@ final class UpgradeRow
 		boolean priced = mode == Mode.STEP || mode == Mode.LEAP || mode == Mode.LOCKED && o.getCost() > 0;
 		JPanel text = new JPanel();
 		text.setOpaque(false);
+		// What the words beside the picture have at the panel's width; a step's medal takes some of it.
+		int room = mode == Mode.STEP ? TEXT_W - 22 : TEXT_W;
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
 		// The name gets the whole first line and the price sits under it beside the damage, so even
@@ -82,7 +87,8 @@ final class UpgradeRow
 		text.add(top);
 		if (plus >= 0)
 		{
-			JLabel second = Ui.label("+ " + o.getName().substring(plus + 3), Theme.body(), name.getForeground());
+			// Wrapped rather than cut, so "+ Inquisitor's great hammer" is read whole.
+			JLabel second = Ui.wrapped("+ " + o.getName().substring(plus + 3), Theme.body(), name.getForeground(), room);
 			second.setToolTipText("Neither does anything alone: together they reach the next max hit");
 			second.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 			text.add(second);
@@ -121,7 +127,10 @@ final class UpgradeRow
 		}
 		if (detail != null && !detail.isEmpty())
 		{
-			JLabel sub = Ui.label(detail, Theme.small(), detailColor);
+			// How a free upgrade is earned, or what a locked one needs, can run long
+			// ("Dragon Slayer II and Vorkath's head"): it wraps instead of being cut.
+			boolean wrap = mode == Mode.FREE || mode == Mode.LOCKED;
+			JLabel sub = wrap ? Ui.wrapped(detail, Theme.small(), detailColor, room) : Ui.label(detail, Theme.small(), detailColor);
 			sub.setToolTipText(detail);
 			sub.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 			text.add(sub);

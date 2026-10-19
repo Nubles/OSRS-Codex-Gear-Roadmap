@@ -405,6 +405,22 @@ public final class RoadCard
 		{
 			fit(g, icon, Math.round(cx - r + 3), Math.round(cy - r + 3), Math.round(r * 2 - 6), Math.round(r * 2 - 6), lit ? 1f : 0.65f);
 		}
+		// A pair's second piece sits in a small well on the other shoulder.
+		Gear partner = partner(o);
+		if (partner != null)
+		{
+			float px = cx - r + 3;
+			float py = cy + r - 5;
+			g.setColor(Theme.INK_DEEP);
+			g.fill(new Ellipse2D.Float(px - 8, py - 8, 16, 16));
+			g.setColor(lit ? Theme.GOLD : Theme.TEXT_FAINT);
+			g.draw(new Ellipse2D.Float(px - 8, py - 8, 16, 16));
+			BufferedImage second = icons == null ? null : icons.icon(partner.getId(), onLoaded);
+			if (second != null)
+			{
+				fit(g, second, Math.round(px - 6), Math.round(py - 6), 12, 12, lit ? 1f : 0.65f);
+			}
+		}
 		// The number on the ring's shoulder.
 		g.setFont(Theme.small());
 		FontMetrics small = g.getFontMetrics();
@@ -423,24 +439,55 @@ public final class RoadCard
 		g.setFont(Theme.small());
 		// The name may take two lines, so "Dragon hunter lance" is read whole under its ring.
 		// A one-line name sits on the second line, just over its price, so prices across a row stay level.
-		List<String> name = lines(shortName(o.getName()), small, colW, 2);
+		List<String> name = nameLines(o.getName(), small, colW);
 		int line = 2 - name.size();
 		for (String text : name)
 		{
 			centred(g, text, left, colW, ty + small.getAscent() + small.getHeight() * line++, lit ? Theme.TEXT : Theme.TEXT_MUTED);
 		}
 		line = 2;
-		String price = o.getCost() > 0 ? Format.coins(o.getCost()) : "free";
+		String price = priceLine(o, small, colW);
 		centred(g, price, left, colW, ty + small.getAscent() + small.getHeight() * line, lit ? Theme.TEAL : Theme.GOLD);
 		centred(g, Format.gain(o.getGain()) + " DPS", left, colW, ty + small.getAscent() + small.getHeight() * (line + 1),
 			Theme.mix(Theme.kind(o.getAfter().getResult().getKind()), Theme.TEXT_FAINT, lit ? 0 : 0.35));
 	}
 
-	/** A pair bought together is named by its first piece and a plus. */
-	static String shortName(String name)
+	/**
+	 * A stop's name in at most two lines. A pair bought together ("A + B") is named by its first
+	 * piece, whole; the second is drawn on the ring's shoulder and the price says it buys both,
+	 * so the stop never reads like an upgrade level ("Obsidian platelegs +1").
+	 */
+	static List<String> nameLines(String name, FontMetrics fm, int width)
 	{
 		int plus = name.indexOf(" + ");
-		return plus < 0 ? name : name.substring(0, plus) + " +1";
+		return lines(plus < 0 ? name : name.substring(0, plus), fm, width, 2);
+	}
+
+	/** The stop's price, "9.9M", or "9.9M for both" for a pair when that fits under its ring. */
+	static String priceLine(Roadmap.Option o, FontMetrics fm, int width)
+	{
+		String price = o.getCost() > 0 ? Format.coins(o.getCost()) : "free";
+		String both = price + " for both";
+		return o.getName().contains(" + ") && fm.stringWidth(both) <= width ? both : price;
+	}
+
+	/** The second piece of a pair bought together, or null for a single upgrade. */
+	static Gear partner(Roadmap.Option o)
+	{
+		int plus = o.getName().indexOf(" + ");
+		if (plus < 0)
+		{
+			return null;
+		}
+		String second = o.getName().substring(plus + 3);
+		for (Gear g : o.getPieces())
+		{
+			if (g.getName().equals(second))
+			{
+				return g;
+			}
+		}
+		return null;
 	}
 
 	private static String kindName(Result.Kind kind)

@@ -52,10 +52,24 @@ public class RoadCardTest
 	}
 
 	@Test
-	public void aPairIsNamedByItsFirstPiece()
+	public void aPairGivesALineToEachPiece()
 	{
-		assertEquals("Obsidian platelegs +1", RoadCard.shortName("Obsidian platelegs + Inquisitor's great hammer"));
-		assertEquals("Ghrazi rapier", RoadCard.shortName("Ghrazi rapier"));
+		FontMetrics fm = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics().getFontMetrics(new Font(Font.MONOSPACED, Font.PLAIN, 10));
+		int w = fm.stringWidth("Obsidian platelegs");
+		// Once "Obsidian platelegs +1", which read like an upgrade level: now the first piece whole,
+		// its partner on the ring's shoulder and the price saying it buys both.
+		assertEquals(Collections.singletonList("Obsidian platelegs"), RoadCard.nameLines("Obsidian platelegs + Inquisitor's great helm", fm, w));
+		assertEquals(Collections.singletonList("Ghrazi rapier"), RoadCard.nameLines("Ghrazi rapier", fm, w));
+		Roadmap.Option pair = null;
+		for (Roadmap.Step s : vorkath.getPath())
+		{
+			pair = s.getOption().getName().contains(" + ") ? s.getOption() : pair;
+		}
+		assertTrue("the mid-game road to Vorkath buys a pair", pair != null);
+		assertTrue(RoadCard.priceLine(pair, fm, 500).endsWith(" for both"));
+		assertEquals(Format.coins(pair.getCost()), RoadCard.priceLine(pair, fm, 5));
+		assertEquals(pair.getPieces().get(pair.getPieces().size() - 1), RoadCard.partner(pair));
+		assertEquals(null, RoadCard.partner(vorkath.getPath().get(0).getOption()));
 	}
 
 	@Test
