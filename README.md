@@ -17,8 +17,10 @@ It is the fourth plugin in the **Codex** suite, after [Codex Navigator](https://
 - **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim your roadmap at it.
 - **Savings goal.** Click any upgrade you would buy and press **Save for it**. The Roadmap tab then shows how far your coins go toward it, and, if you also use [Codex Ledger](https://github.com/Nubles/OSRS-Codex-Ledger), roughly how many days the rest should take at the pace your net worth grew over the last week. A plaque and a chat line tell you when your coins cover it, and again when it is yours.
 - **Follows your slayer task.** While your task is for a monster on the Targets list, the roadmap aims at it, so the road answers "what should I buy for this task?". The Targets tab lists the task's monsters first. Bosses a broad task also covers, such as Callisto on a bears task, are listed there rather than aimed at. Pick any other target and the roadmap stays on it until your next task; the **Follow slayer task** setting turns this off.
-- **Where you fight.** If you use [Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle), the Targets tab reads the kills it logged over the last 30 days and names the buys that would save you the most time across the monsters you actually fight, weighted by how often you fight them, with the time each would have saved you over those days.
+- **Where you fight.** If you use [Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle), the Targets tab reads the kills it logged over the last 30 days and names the buys that would save you the most time across the monsters you actually fight, weighted by how often you fight them, with the time each would have saved you over those days. Each kill is weighed as it was fought: with the slayer helmet's bonus if it was made on a task, without if not.
 - **Levels that pay.** The Loadout tab lists the next Strength, Attack, Ranged or Magic level that would raise your damage in the gear you already wear, and the Prayer or Defence level that unlocks a stronger prayer (Piety at 70 Defence, say), with the new max hit or prayer and what the road ahead would charge in coins for the same extra damage.
+- **Put on.** The Loadout tab compares what you are wearing with the best you own against your target: the pieces to put on, weapon first, whether each is in your inventory or your bank, and the damage the change adds. When you are already wearing it, it says so.
+- **Outgrown.** At the foot of the Roadmap tab, the combat gear you own that none of your best loadouts wear, for any style against any target, with what it sells for and how much of your next upgrade that would pay. Gear you can't wield yet, ammunition, pieces under 50k and gear kept for what it does (dragonfire shields, slayer and tank gear, special attack weapons, teleport jewellery) are never listed. Not shown to ironmen.
 - **Upgrade plaque.** When you get an upgrade from your road, a gilt plaque shows the damage it adds and what is next. A matching line can go to the chat box too.
 
 <p align="center">
@@ -33,7 +35,7 @@ It is the fourth plugin in the **Codex** suite, after [Codex Navigator](https://
 
 ## Getting started
 
-Open your bank once so Gear Roadmap knows everything you own. Your worn gear and inventory are read as they change, and the bank is remembered per account. Coins moving in and out only move the "in reach" line, and experience drops do nothing until you gain a level, so the plan is not redone while you fight. Pick a target on the Targets tab, or type one in the plugin's settings.
+Open your bank once so Gear Roadmap knows everything you own; with [Codex Bank Steward](https://github.com/Nubles/OSRS-Codex-Bank-Steward) installed it reads Steward's saved bank too, so there is nothing to open. Ammunition counts as owned once you have a stack of 100. Your worn gear and inventory are read as they change, and the bank is remembered per account. Coins moving in and out only move the "in reach" line, and experience drops do nothing until you gain a level, so the plan is not redone while you fight. Pick a target on the Targets tab, or type one in the plugin's settings.
 
 ## How the numbers work
 
@@ -47,7 +49,7 @@ Open your bank once so Gear Roadmap knows everything you own. Your worn gear and
 
 ## Rules posture
 
-Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. With Codex Ledger installed it also reads, and never writes, the net worth history Ledger saves in your RuneLite profile, and with Codex Session Chronicle installed it reads, and never writes, the kills Chronicle logged; without them, everything else works the same. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. Your bank is saved per account in your RuneLite profile and never leaves your computer.
+Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. With Codex Ledger installed it also reads, and never writes, the net worth history Ledger saves in your RuneLite profile, with Codex Session Chronicle installed it reads, and never writes, the kills Chronicle logged, and with Codex Bank Steward installed it reads, and never writes, the bank Steward saved; without them, everything else works the same. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. Your bank is saved per account in your RuneLite profile and never leaves your computer.
 
 ## Credits
 

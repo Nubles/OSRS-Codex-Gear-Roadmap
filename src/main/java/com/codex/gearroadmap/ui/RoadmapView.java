@@ -1,9 +1,11 @@
 package com.codex.gearroadmap.ui;
 
+import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Savings;
+import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.function.Consumer;
@@ -90,8 +92,48 @@ final class RoadmapView
 					() -> preview.accept(o)), o, savings));
 			}
 		}
+		outgrown(stack, report.getOutgrown(), map, icons);
 		stack.add(Rows.note(footnote(report), 190));
 		return stack;
+	}
+
+	/** Owned gear no best loadout wears, and what selling it puts toward the road. */
+	static void outgrown(StackPanel stack, Outgrown outgrown, Roadmap map, ItemIcons icons)
+	{
+		if (outgrown == null || outgrown.isEmpty())
+		{
+			return;
+		}
+		stack.add(new SectionHeader("Outgrown", Format.coins(outgrown.getWorth())));
+		int shown = 0;
+		for (Outgrown.Piece p : outgrown.getPieces())
+		{
+			if (shown++ == Outgrown.SHOWN)
+			{
+				break;
+			}
+			Card row = Rows.line(new IconBadge(p.getGear().getId(), icons, true), p.getGear().getName(),
+				Gear.SLOT_NAMES[p.getGear().getSlot()], Ui.label(Format.coins(p.getPrice()), Theme.small(), Theme.GOLD), null);
+			row.setToolTipText("<html>" + Ui.escape(p.getGear().getName()) + " is in none of your best loadouts,<br>for any kind of attack against any target.</html>");
+			stack.add(row);
+		}
+		int more = outgrown.getPieces().size() - Outgrown.SHOWN;
+		StringBuilder text = new StringBuilder("None of your best loadouts, for any style against any target, wear ")
+			.append(outgrown.getPieces().size() == 1 ? "this" : "these")
+			.append(more > 0 ? " or " + more + " more" : "").append(".");
+		if (!map.getPath().isEmpty())
+		{
+			Roadmap.Option next = map.getPath().get(0).getOption();
+			long cost = next.getCost();
+			long share = cost <= 0 ? 0 : outgrown.getWorth() * 100 / cost;
+			if (share >= 1)
+			{
+				text.append(outgrown.getWorth() >= cost ? " Selling them would pay for " + next.getName() + "."
+					: " Selling them would pay " + share + "% of " + next.getName() + ".");
+			}
+		}
+		text.append(" Gear kept for its effect (dragonfire shields, slayer and tank gear) is never listed.");
+		stack.add(Rows.note(text.toString(), 190));
 	}
 
 	/** The upgrade the player is saving for wears a gilt rim wherever it appears. */

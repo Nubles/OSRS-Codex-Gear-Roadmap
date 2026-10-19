@@ -24,6 +24,8 @@ public final class Report
 	private Fights.Tally tally;
 	private List<Fights.Pick> fights = Collections.emptyList();
 	private List<Levels.Step> levels = Collections.emptyList();
+	private Swap swap;
+	private Outgrown outgrown;
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -102,6 +104,35 @@ public final class Report
 		return levels;
 	}
 
+	/** A copy that knows what is worn now against the best owned, or null before the gear has been read. */
+	public Report withSwap(Swap swap)
+	{
+		Report r = copy(roadmap);
+		r.swap = swap;
+		r.outgrown = outgrown;
+		return r;
+	}
+
+	/** A copy that knows the owned gear no best loadout wears, or null for an ironman. */
+	public Report withOutgrown(Outgrown outgrown)
+	{
+		Report r = copy(roadmap);
+		r.outgrown = outgrown;
+		return r;
+	}
+
+	/** Owned gear no best loadout wears against any target, or null. */
+	public Outgrown getOutgrown()
+	{
+		return outgrown;
+	}
+
+	/** What is worn now against the best loadout owned for the aimed target, or null. */
+	public Swap getSwap()
+	{
+		return swap;
+	}
+
 	/** A copy with the savings goal's standing, or none. */
 	public Report withSavings(Savings.View savings)
 	{
@@ -124,6 +155,8 @@ public final class Report
 		r.tally = tally;
 		r.fights = fights;
 		r.levels = levels;
+		r.swap = swap;
+		r.outgrown = outgrown;
 		return r;
 	}
 

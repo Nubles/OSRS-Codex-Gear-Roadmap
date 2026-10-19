@@ -8,7 +8,9 @@ import com.codex.gearroadmap.core.Holdings;
 import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Savings;
+import com.codex.gearroadmap.core.Swap;
 import com.codex.gearroadmap.core.SlayerTask;
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
@@ -175,6 +177,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** Codex Session Chronicle's filed sessions for this account, or empty without it. */
 	private List<Fights.Logged> chronicle = Collections.emptyList();
 	private boolean coinsDirty;
+	/** What is worn changed without changing what is owned, so only the swap advice needs redoing. */
+	private boolean wornDirty;
 	private int ticksSinceAnalysis;
 	private final Map<Skill, Integer> realLevels = new HashMap<>();
 	/** Which task the plan was made for; the kill count falls on every kill and must not re-plan each time. */
@@ -445,7 +449,14 @@ public class CodexGearRoadmapPlugin extends Plugin
 		boolean bankKnown = holdings.isKnown();
 		Set<Integer> before = ownedIds();
 		long coinsBefore = coins();
+		Set<Integer> wornBefore = new HashSet<>(worn.keySet());
+		Set<Integer> carriedBefore = new HashSet<>(inventory.keySet());
 		readContainer(id);
+		if (!worn.keySet().equals(wornBefore) || !inventory.keySet().equals(carriedBefore))
+		{
+			// Putting on or taking off something already owned only changes the swap advice.
+			wornDirty = true;
+		}
 		Set<Integer> after = ownedIds();
 		if (!after.equals(before))
 		{
@@ -539,12 +550,14 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			dirty = false;
 			coinsDirty = false;
+			wornDirty = false;
 			ticksSinceAnalysis = 0;
 			analyse();
 		}
-		else if (coinsDirty && !dirty && publishedTicket == generation.get())
+		else if ((coinsDirty || wornDirty) && !dirty && publishedTicket == generation.get())
 		{
 			coinsDirty = false;
+			wornDirty = false;
 			Report report = lastReport;
 			if (report != null && report.getRoadmap() != null)
 			{
@@ -966,6 +979,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** Adds the savings goal's standing to a report, and says so once the player's coins reach it. */
 	private Report dress(Report report)
 	{
+		report = report.withSwap(swap(report.getRoadmap()));
 		Roadmap map = report.getRoadmap();
 		if (map == null || goal == null || report.isIronman() || map.getGoal() == null)
 		{
@@ -980,6 +994,17 @@ public class CodexGearRoadmapPlugin extends Plugin
 		}
 		goalAffordable = affordable;
 		return report.withSavings(view);
+	}
+
+	/** What is worn now against the best loadout owned for the road's target; one damage sum, so cheap enough for the client thread. */
+	private Swap swap(Roadmap map)
+	{
+		if (map == null || map.getNow() == null)
+		{
+			return null;
+		}
+		return Swap.of(worn.keySet(), inventory.keySet(), data::gear, map.getNow().best(), advisor.planner().calc(), fighter(),
+			map.getTarget());
 	}
 
 	private void announceGoal(Savings.View view, String target)
@@ -1142,7 +1167,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 					Report planned = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
 						.withAccount(ironman, seasonal, task, slayer)
 						.withTask(following, taskTargets, shownTask)
-						.withExtras(tally, fights, Levels.ahead(advisor.planner().calc(), map, fighter));
+						.withExtras(tally, fights, Levels.ahead(advisor.planner().calc(), map, fighter))
+						// Ironmen cannot sell, so nothing is outgrown for coins.
+						.withOutgrown(ironman ? null : Outgrown.of(owned, cached.rows, g -> advisor.planner().wieldable(g, fighter),
+							id -> prices.getOrDefault(id, 0L)));
 					// The goal's standing is settled on the client thread, where the goal and coins live.
 					clientThread.invokeLater(() ->
 					{

@@ -137,11 +137,19 @@ public final class Roadmap
 	{
 		private final Target target;
 		private final Planner.Plan plan;
+		private final Planner.Best best;
 
-		Survey(Target target, Planner.Plan plan)
+		Survey(Target target, Planner.Best best)
 		{
 			this.target = target;
-			this.plan = plan;
+			this.plan = best.best();
+			this.best = best;
+		}
+
+		/** The best plan for each kind of attack, not only the best of them. */
+		public Planner.Best getBest()
+		{
+			return best;
 		}
 
 		public Target getTarget()

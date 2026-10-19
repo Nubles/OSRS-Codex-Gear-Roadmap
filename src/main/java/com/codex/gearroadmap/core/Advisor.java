@@ -461,7 +461,7 @@ public final class Advisor
 		for (Target t : data.targets())
 		{
 			Planner.Best best = planner.optimise(owned, fighter, t);
-			rows.add(new Roadmap.Survey(t, best.best()));
+			rows.add(new Roadmap.Survey(t, best));
 		}
 		return rows;
 	}

@@ -7,6 +7,7 @@ import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Savings;
+import com.codex.gearroadmap.core.Swap;
 import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -132,6 +133,10 @@ final class LoadoutView
 			stack.add(Rows.check(slayer ? Mark.Kind.GOOD : Mark.Kind.NOTE, slayer ? "On task" : "Off task",
 				slayer ? "Slayer helmet bonus counts" : "No slayer helmet bonus", null));
 		}
+		if (preview == null && kindIndex == 0)
+		{
+			wearing(stack, report.getSwap(), map.getTarget().getName(), icons);
+		}
 		if (preview == null && kindIndex == 0 && !report.getLevels().isEmpty())
 		{
 			// Training is an upgrade too: the next level in each skill that adds damage, in the same gear.
@@ -163,6 +168,38 @@ final class LoadoutView
 			stack.add(Rows.note("Built from the " + report.getOwned() + " pieces of combat gear you own. Click any upgrade on the Roadmap to see the loadout it makes.", 190));
 		}
 		return stack;
+	}
+
+	/** What is worn now against this loadout: the pieces to put on, or a word that it is already worn. */
+	static void wearing(StackPanel stack, Swap swap, String target, ItemIcons icons)
+	{
+		if (swap == null || swap.getBestDps() <= 0)
+		{
+			return;
+		}
+		if (swap.isBest())
+		{
+			stack.add(Rows.check(Mark.Kind.GOOD, "You're wearing it", "Your best for " + target, null));
+			return;
+		}
+		if (swap.getChanges().isEmpty())
+		{
+			return;
+		}
+		stack.add(new SectionHeader("Put on", Format.gain(swap.gain()) + " DPS"));
+		for (Swap.Change c : swap.getChanges())
+		{
+			Gear off = c.getOff();
+			String where = c.getWhere() == Swap.Where.INVENTORY ? "In your inventory" : "In your bank";
+			Card row = Rows.line(new IconBadge(c.getWear().getId(), icons, true), c.getWear().getName(),
+				off == null ? where : where + ", for " + off.getName(), null, null);
+			row.setToolTipText("<html>" + Ui.escape(c.getWear().getName()) + " in your " + Gear.SLOT_NAMES[c.getWear().getSlot()].toLowerCase()
+				+ " slot" + (off == null ? "" : " instead of " + Ui.escape(off.getName())) + "</html>");
+			stack.add(row);
+		}
+		String now = swap.getWornKind() == null ? "What you're wearing can't hurt " + target + "."
+			: "You're wearing " + Format.dps(swap.getWornDps()) + " DPS of " + swap.getWornKind().toString().toLowerCase() + " against " + target + ".";
+		stack.add(Rows.note(now + " The loadout above does " + Format.dps(swap.getBestDps()) + ".", 190));
 	}
 
 	private static String styleLine(Result r)
