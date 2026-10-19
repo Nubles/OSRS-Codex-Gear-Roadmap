@@ -2,61 +2,64 @@
 
 **Your next gear upgrades, ranked by damage per coin.** Codex Gear Roadmap reads the gear you own and your real levels, works out your best loadout against the monster you are aiming at, and lays out the road ahead: which upgrade adds the most damage for every coin, then the next one from there, until your loadout is close to the best in slot.
 
-It is the fourth plugin in the **Codex** suite, after [Codex Navigator](https://github.com/Nubles/OSRS-Codex-Navigator), [Codex Guardian](https://github.com/Nubles/OSRS-Codex-Guardian) and [Codex Log Insight](https://github.com/Nubles/OSRS-Codex-Log-Insight), and shares their look: warm ink, aged gold and the game's own fonts.
+It is part of the **Codex** suite and shares its look: warm ink, aged gold and the game's own fonts.
 
 <p align="center">
-  <img src="docs/screenshots/roadmap.png" width="225" alt="Roadmap">
-  <img src="docs/screenshots/loadout.png" width="225" alt="Loadout">
-  <img src="docs/screenshots/targets.png" width="225" alt="Targets">
+  <img src="docs/screenshots/roadmap.png" width="225" alt="The Roadmap tab">
+  <img src="docs/screenshots/loadout.png" width="225" alt="The Loadout tab">
+  <img src="docs/screenshots/targets.png" width="225" alt="The Targets tab">
 </p>
 
-## What it does
+## What you get
 
-- **Roadmap.** A dial with your damage per second now, then the road ahead as a chart: each upgrade is a stop, the stretch your coins already cover is lit, and the rest waits further on. Below it, the next upgrades in order with their price, the damage each adds, what each point of damage costs and whether you can afford it yet. Upgrades you earn rather than buy (a Salve amulet imbue, Dizana's quiver, the void sets), the biggest leaps off the cheap road, and upgrades you could use after some training get their own lists.
-- **Loadout.** The best loadout from what you own, laid out like the equipment screen, with its damage per second, max hit, accuracy, kill time, attack style and prayer. Switch between your best melee, ranged and magic setups, or click any upgrade on the Roadmap to see the loadout it builds, with the new pieces glowing.
-- **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim your roadmap at it.
-- **Savings goal.** Click any upgrade you would buy and press **Save for it**. The Roadmap tab then shows how far your coins go toward it, and, if you also use [Codex Ledger](https://github.com/Nubles/OSRS-Codex-Ledger), roughly how many days the rest should take at the pace your net worth grew over the last week. A plaque and a chat line tell you when your coins cover it, and again when it is yours.
-- **Follows your slayer task.** While your task is for a monster on the Targets list, the roadmap aims at it, so the road answers "what should I buy for this task?". The Targets tab lists the task's monsters first. Bosses a broad task also covers, such as Callisto on a bears task, are listed there rather than aimed at. Pick any other target and the roadmap stays on it until your next task; the **Follow slayer task** setting turns this off.
-- **Fighting now.** Attack a monster on the Targets list that the road is not aimed at, and a small card under the target says what your best gear does there with a button to aim the road at it. It never moves the aim on its own, since you may be fighting one thing and planning for another; **Hide** puts it away for that fight. The task is followed through world hops too: the game's slayer task blinks to none for a moment as you arrive in a new world, and the roadmap waits for it to settle rather than forget a boss you picked on the task.
-- **Where you fight.** If you use [Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle), the Targets tab reads the kills it logged over the last 30 days and names the buys that would save you the most time across the monsters you actually fight, weighted by how often you fight them, with the time each would have saved you over those days. Each kill is weighed as it was fought: with the slayer helmet's bonus if it was made on a task, without if not.
-- **Levels that pay.** The Loadout tab lists the next Strength, Attack, Ranged or Magic level that would raise your damage in the gear you already wear, and the Prayer or Defence level that unlocks a stronger prayer (Piety at 70 Defence, say), with the new max hit or prayer and what the road ahead would charge in coins for the same extra damage.
-- **Put on.** The Loadout tab compares what you are wearing with the best you own against your target: the pieces to put on, weapon first, whether each is in your inventory or your bank, and the damage the change adds. When you are already wearing it, it says so.
-- **Outgrown.** At the foot of the Roadmap tab, the combat gear you own that none of your best loadouts wear, for any style against any target, with what it sells for and how much of your next upgrade that would pay. Gear you can't wield yet, ammunition, pieces under 50k and gear kept for what it does (dragonfire shields, slayer and tank gear, special attack weapons, teleport jewellery), skilling tools and anything untradeable are never listed. Not shown to ironmen.
-- **Share your road.** At the foot of the Roadmap tab, **Save card** or **Copy** turns your road into a gilt card to post: your name and target, the damage you do now against the road's end with kill times and max hits, today's loadout slot by slot, every stop on a winding road with its item, price and damage (lit gold as far as your coins go), your savings goal with the days it should take by [Codex Ledger](https://github.com/Nubles/OSRS-Codex-Ledger), and the buy that would have saved you the most time where [Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle) says you fight. A pair bought together is named by its first piece with the second on the ring's shoulder and its price "for both". The card is drawn only when you press a button, waits a moment for any item picture still loading so no stop is left as an empty ring, and saved wherever you choose with RuneLite's file chooser. Your coins, and how far they go toward your savings goal, stay off the card unless you turn on **Worth on cards**; prices are written as in Codex Ledger and Session Chronicle ("60k", "12.0M", "1.60B").
-- **Upgrade plaque.** When you get an upgrade from your road, a gilt plaque shows the damage it adds and what is next. A matching line can go to the chat box too.
-- **Road behind.** Each upgrade you pick up from the road is kept, per account, with the damage it added, where and the day: the Roadmap tab lists the latest five under **Road behind**, so you can see how far the road has come. Meeting your savings goal puts it there too.
-
-<p align="center">
-  <img src="docs/screenshots/preview.png" width="225" alt="Previewing an upgrade">
-  <img src="docs/screenshots/plaque.png" width="300" alt="Upgrade plaque">
-</p>
+- **Roadmap.** Your damage per second now, then the road ahead as a chart, lit as far as your coins reach. Below it, the next upgrades in order with their price, the damage each adds and what each point of damage costs. Upgrades you earn rather than buy (a Salve amulet imbue, Dizana's quiver, the void sets) and the biggest leaps off the cheap road get their own lists.
+- **Savings goal.** Press **Save for it** on any upgrade and the Roadmap tab shows how far your coins go toward it. A plaque and a chat line tell you when your coins cover it, and again when it is yours.
+- **Road behind.** Each upgrade you pick up from the road is kept with the damage it added, where and the day.
+- **Outgrown.** Combat gear you own that none of your best loadouts wear, with what it would sell for (not shown to ironmen).
+- **Loadout.** The best loadout from what you own, laid out like the equipment screen, with its damage, max hit, accuracy and kill time, for melee, ranged and magic. It lists what to put on from your inventory or bank, and the next level that would raise your damage.
+- **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim the road at it. While your slayer task covers a listed monster, the road follows the task.
+- **Road card.** **Save card** or **Copy** turns your road into a card to share: your loadout, every stop on the road with its price and damage, and your savings goal.
+- **Upgrade plaque.** When you get an upgrade from your road, a plaque in the game view shows the damage it adds and what is next.
 
 <p align="center">
   <img src="docs/screenshots/road-card.png" width="360" alt="A road card">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/goal.png" width="225" alt="Savings goal">
-  <img src="docs/screenshots/task.png" width="225" alt="Following a slayer task">
-</p>
-
 ## Getting started
 
-Open your bank once so Gear Roadmap knows everything you own; with [Codex Bank Steward](https://github.com/Nubles/OSRS-Codex-Bank-Steward) installed it reads Steward's saved bank too, so there is nothing to open. Ammunition counts as owned once you have a stack of 100 across your bank, inventory, worn slot and Dizana's quiver. Your worn gear and inventory are read as they change, and the bank is remembered per account. Coins moving in and out only move the "in reach" line, and experience drops do nothing until you gain a level, so the plan is not redone while you fight. Pick a target on the Targets tab, or type one in the plugin's settings.
+Open your bank once so Gear Roadmap knows everything you own (or let it read Codex Bank Steward's saved bank, below). Then pick a target on the Targets tab. Your worn gear and inventory are read as they change, and the bank is remembered per account.
+
+## Settings that matter
+
+| Setting | What it does |
+| --- | --- |
+| Target | The monster the road is for; easiest picked on the Targets tab. |
+| Potions, Offensive prayers | What the damage figures assume you use. |
+| Slayer helmet bonus | When the black mask and slayer helmet bonus counts: by default against Slayer monsters, and against a boss only while your task covers it. |
+| Follow slayer task | Aim the road at your slayer task's monster while you have one. On by default. |
+| Upgrade plaque, Plaque time, Upgrade in chat | How a claimed upgrade or an affordable savings goal is announced. |
+| Name on cards | Writes your character's name on the road card. On by default. |
+| Worth on cards | Shows your coins and how far they go toward your goal on the road card. Off by default. |
+
+## With other Codex plugins
+
+Gear Roadmap works on its own. If you also use these, it reads (never writes) what they save:
+
+- **[Codex Ledger](https://github.com/Nubles/OSRS-Codex-Ledger)**: your net worth history, so the savings goal says roughly how many days the rest should take at last week's pace.
+- **[Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle)**: the kills it logged over the last 30 days, so the Targets tab can name the buy that would have saved you the most time where you actually fight.
+- **[Codex Bank Steward](https://github.com/Nubles/OSRS-Codex-Bank-Steward)**: its saved copy of your bank, so there is no need to open the bank first.
+
+Codex Plunder Pilot and Pest Control Pilot read the gear bank this plugin saves, and Codex Bank Steward reads its savings goal.
 
 ## How the numbers work
 
-- **Damage** follows the game's formulas as the OSRS Wiki documents them: accuracy and max hit from your levels, potions, prayers and gear, with the special effects that matter for upgrades, such as the Salve amulet (which never stacks with the slayer helmet), slayer helmet and black mask, void and elite void, crystal armour, Inquisitor's, the obsidian set, the twisted bow, the Tumeken's shadow, Osmumten's fang, the scythe, the dual macuahuitl, keris, dragon hunter weapons (which add to the imbued slayer helmet rather than multiply it), demonbane weapons, revenant weapons in the Wilderness, Dizana's quiver, the tome of fire, enchanted bolts (with the Kandarin hard diary), ice spells with no element, and elemental weaknesses. Monsters with their own rules are handled too: Zulrah's damage cap, the Kraken's ranged resistance, the Corporeal Beast's halved damage and the tormented demon's shield.
-- **Checked against the wiki.** The tests compare the engine with the wiki's DPS calculator on a fixed set of loadouts, and it agrees to within 1% on thousands of random ones. Where Gear Roadmap knowingly differs it says why: Vardorvis uses his mid-fight Defence, ruby bolts are averaged over the whole kill, the Soulreaper axe assumes five stacks and the blowpipe assumes dragon darts. Vorkath's melee damage counts at 80%, because his acid phase and fire bombs keep a melee player walking while ranged and magic keep attacking; the Loadout tab says so when it applies.
-- **Your best loadout** is searched for each of melee, ranged and magic from everything you own, then the best of the three is used.
-- **Kill time.** Each upgrade's tooltip gives the kill time before and after it.
-- **The road** picks the upgrade with the most damage gained per coin, adds it to your gear, searches again and repeats, so each step is weighed against the loadout the steps before it built. Two pieces that each fall just short of the next max hit, but cross it together, are offered as one step. Prices are live Grand Exchange prices from RuneLite (platinum tokens count as coins), and ammunition is priced per 1,000. The road starts from iron scimitars and shortbows, so new accounts get one too.
-- **Ironmen** cannot buy, so their road shows its total cost instead of their coins, and prices stand for how hard each item is to get. Seasonal worlds are planned without their relics, and the panel says so.
-- **Assumptions** are in the settings: combat potions or none, and offensive prayers you have unlocked (Piety, Rigour, Augury, Deadeye and Mystic Vigour are read from the game). The **Slayer helmet bonus** setting counts the black mask and slayer helmet against Slayer monsters and against whatever your current task covers, boss tasks included; it can also be set to always or never. The Loadout tab shows which was assumed.
+Damage follows the game's formulas as the OSRS Wiki documents them, including the special effects that matter for upgrades (Salve amulet, slayer helmet, void, crystal armour, the twisted bow, dragon hunter and demonbane weapons, enchanted bolts and more) and monsters with their own rules (Zulrah's damage cap, the Corporeal Beast, tormented demons). The tests check the engine against the wiki's DPS calculator. The road picks the upgrade with the most damage per coin, adds it, and searches again, so each step is weighed against the gear the steps before it built. Prices are RuneLite's live Grand Exchange prices; ironmen see a total cost instead of their coins.
+
+Saves damaged in part keep everything that can still be read.
 
 ## Rules posture
 
-Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. With Codex Ledger installed it also reads, and never writes, the net worth history Ledger saves in your RuneLite profile, with Codex Session Chronicle installed it reads, and never writes, the kills Chronicle logged, and with Codex Bank Steward installed it reads, and never writes, the bank Steward saved; without them, everything else works the same. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. A road card is only written when you press Save and pick where it goes. Your bank is saved per account in your RuneLite profile and never leaves your computer.
+Gear Roadmap only reads what the game already shows you: your equipment, inventory, bank, levels and prayer unlocks. It does not click, change menus, send chat or touch the network beyond RuneLite's own price lookups. A road card is only written when you press Save and pick where it goes.
 
 ## Credits
 
