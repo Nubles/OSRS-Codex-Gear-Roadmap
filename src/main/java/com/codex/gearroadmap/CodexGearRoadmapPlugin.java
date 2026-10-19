@@ -1116,6 +1116,18 @@ public class CodexGearRoadmapPlugin extends Plugin
 				prices.put(id, price);
 			}
 		}
+		// Owned pieces too, though no upgrade buys them, so outgrown gear has a price to sell at.
+		for (Gear g : owned)
+		{
+			if (!prices.containsKey(g.getId()))
+			{
+				long price = itemManager.getItemPrice(g.getId());
+				if (price > 0)
+				{
+					prices.put(g.getId(), price);
+				}
+			}
+		}
 		String key = taskKey();
 		boolean follow = config.followTask() && !key.equals(taskDismissed);
 		boolean bossTask = !key.isEmpty() && client.getVarpValue(VarPlayerID.SLAYER_TARGET) == BOSS_TASK;
