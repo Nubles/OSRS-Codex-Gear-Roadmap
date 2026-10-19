@@ -31,7 +31,7 @@ final class TargetsView
 		StackPanel stack = new StackPanel(4, 8);
 		if (!report.isLoggedIn())
 		{
-			stack.add(Rows.note("Log in to compare your gear against every target.", 190));
+			stack.add(Rows.empty("Over 70 targets wait", "Log in to see your damage and kill time against every boss, slayer monster and training spot."));
 			return stack;
 		}
 		if (report.getSurvey().isEmpty())

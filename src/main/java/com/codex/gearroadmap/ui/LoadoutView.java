@@ -37,7 +37,8 @@ final class LoadoutView
 		Roadmap map = report.getRoadmap();
 		if (!report.isLoggedIn() || map == null)
 		{
-			stack.add(Rows.note(report.isLoggedIn() ? "Reading your gear..." : "Log in to see your best loadouts.", 190));
+			stack.add(report.isLoggedIn() ? Rows.note("Reading your gear...", 190)
+				: Rows.empty("No gear to read yet", "Log in to see your best melee, ranged and magic loadouts from what you own."));
 			return stack;
 		}
 		Planner.Plan plan;

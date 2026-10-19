@@ -82,6 +82,16 @@ public final class Rows
 		return card;
 	}
 
+	/** An empty state as a card: what is missing in gold, and what to do about it beneath. */
+	public static Card empty(String title, String text)
+	{
+		Card card = new Card(new BorderLayout(0, 3));
+		card.setBorder(new EmptyBorder(8, 10, 9, 10));
+		card.add(Ui.label(title, Theme.body(), Theme.GOLD_BRIGHT), BorderLayout.NORTH);
+		card.add(Ui.wrapped(text, Theme.small(), Theme.TEXT_MUTED, 176), BorderLayout.CENTER);
+		return card;
+	}
+
 	/** A quiet line of text for empty states. */
 	public static JComponent note(String text, int width)
 	{

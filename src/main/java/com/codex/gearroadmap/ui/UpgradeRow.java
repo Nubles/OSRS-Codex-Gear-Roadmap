@@ -66,7 +66,8 @@ final class UpgradeRow
 		text.setOpaque(false);
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
-		// The name gets the whole first line, with the price at its end, so it is rarely cut short.
+		// The name gets the whole first line and the price sits under it beside the damage, so even
+		// "Dragon hunter lance" or "Inquisitor's plateskirt" is read whole at the panel's width.
 		JPanel top = new JPanel(new BorderLayout(4, 0));
 		top.setOpaque(false);
 		// A pair bought together ("A + B") names the first on top and the second beneath it.
@@ -75,11 +76,8 @@ final class UpgradeRow
 		JLabel name = Ui.label(title, Theme.body(), mode == Mode.LOCKED ? Theme.TEXT_MUTED : Theme.TEXT);
 		name.setMinimumSize(new Dimension(10, 10));
 		name.setPreferredSize(new Dimension(10, name.getPreferredSize().height));
+		name.setToolTipText(o.getName());
 		top.add(name, BorderLayout.CENTER);
-		if (priced)
-		{
-			top.add(Ui.label(Format.coins(o.getCost()), Theme.body(), priceColor), BorderLayout.EAST);
-		}
 		top.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		text.add(top);
 		if (plus >= 0)
@@ -94,6 +92,10 @@ final class UpgradeRow
 		JPanel middle = new JPanel(new BorderLayout(4, 0));
 		middle.setOpaque(false);
 		middle.add(Ui.label(Format.gain(o.getGain()) + " DPS  " + Format.share(o.getGainShare()), Theme.small(), gainColor), BorderLayout.WEST);
+		if (priced)
+		{
+			middle.add(Ui.label(Format.coins(o.getCost()), Theme.body(), priceColor), BorderLayout.EAST);
+		}
 		middle.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		text.add(middle);
 

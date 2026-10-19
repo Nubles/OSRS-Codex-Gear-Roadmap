@@ -31,7 +31,7 @@ public class RoadChart extends JComponent
 	private static final int HEIGHT = 160;
 	private static final int PAD_LEFT = 8;
 	private static final int PAD_RIGHT = 12;
-	private static final int PAD_TOP = 26;
+	private static final int PAD_TOP = 32;
 	private static final int PAD_BOTTOM = 22;
 	private static final int NODE = 20;
 
@@ -228,6 +228,11 @@ public class RoadChart extends JComponent
 		{
 			drawNode(g, xs[i + 1], ys[i + 1], i, path.get(i).isAffordable());
 		}
+		// Step numbers go on after every node, so a crowded stretch late on never hides one under its neighbour.
+		for (int i = 0; i < n; i++)
+		{
+			drawBadge(g, xs[i + 1], ys[i + 1], i, path.get(i).isAffordable());
+		}
 
 		g.setClip(null);
 		g.setFont(Theme.small());
@@ -272,7 +277,12 @@ public class RoadChart extends JComponent
 			g.drawImage(image, (int) Math.round(cx - dw / 2.0), (int) Math.round(cy - dh / 2.0), dw, dh, null);
 			g.setComposite(old);
 		}
-		// The step number sits on the node's shoulder.
+	}
+
+	/** The step number on the node's shoulder. */
+	private void drawBadge(Graphics2D g, double cx, double cy, int index, boolean affordable)
+	{
+		float r = NODE / 2f;
 		g.setFont(Theme.small());
 		FontMetrics fm = g.getFontMetrics();
 		String label = String.valueOf(index + 1);
