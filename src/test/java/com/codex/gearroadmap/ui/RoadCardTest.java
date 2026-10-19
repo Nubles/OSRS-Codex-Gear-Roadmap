@@ -111,4 +111,26 @@ public class RoadCardTest
 			null, null, NOW, () -> { });
 		assertTrue(empty.getHeight() < card.getHeight());
 	}
+
+	@Test
+	public void worthStaysOffTheCardUnlessAskedFor()
+	{
+		Report report = new Report(true, vorkath, Collections.emptyList(), "Potions", 40, true);
+		assertEquals(Format.coins(vorkath.getCoins()) + " in coins", RoadCard.foot(report, true));
+		assertEquals("", RoadCard.foot(report, false));
+		// Without worth the card still draws whole.
+		BufferedImage card = RoadCard.render(report, null, null, NOW, null, false);
+		assertEquals(RoadCard.WIDTH * RoadCard.SCALE, card.getWidth());
+	}
+
+	@Test
+	public void theChartsFiguresNeverRunIntoItsTitle()
+	{
+		FontMetrics fm = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics().getFontMetrics(new Font(Font.MONOSPACED, Font.PLAIN, 10));
+		String wide = "6.93 DPS  ·  156.3M";
+		assertEquals(wide, RoadChart.top("6.93", "156.3M", fm, fm.stringWidth(wide)));
+		// Once drawn as "THE ROAD AHEAD6.93 DPS · 156.3M" at the panel's width.
+		assertEquals("6.93 DPS · 156.3M", RoadChart.top("6.93", "156.3M", fm, fm.stringWidth(wide) - 1));
+		assertEquals("6.93 DPS", RoadChart.top("6.93", "156.3M", fm, fm.stringWidth("6.93 DPS · 1")));
+	}
 }

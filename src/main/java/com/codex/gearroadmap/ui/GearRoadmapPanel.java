@@ -43,6 +43,7 @@ public class GearRoadmapPanel extends PluginPanel
 	private String playerName;
 	/** Whether the road card carries the character's name, from the settings. */
 	private boolean showName = true;
+	private boolean showWorth;
 	private String search = "";
 	private Roadmap.Option preview;
 	/** The listed monster being fought, and the one the player hid the offer for. */
@@ -165,6 +166,12 @@ public class GearRoadmapPanel extends PluginPanel
 		return report == null || report.getRoadmap() == null ? null : report.getRoadmap().getTarget().getName();
 	}
 
+	/** Whether the road card shows the player's coins and how far they go; used when the card is next drawn. */
+	public void setShowWorth(boolean showWorth)
+	{
+		this.showWorth = showWorth;
+	}
+
 	/** Whether the road card carries the character's name; used when the card is next drawn. */
 	public void setShowName(boolean showName)
 	{
@@ -262,8 +269,9 @@ public class GearRoadmapPanel extends PluginPanel
 	{
 		Report drawn = report;
 		String name = showName ? playerName : null;
+		boolean worth = showWorth;
 		long now = System.currentTimeMillis();
-		CardPictures.draw(icons, pictures -> RoadCard.render(drawn, name, pictures, now, null), deliver);
+		CardPictures.draw(icons, pictures -> RoadCard.render(drawn, name, pictures, now, null, worth), deliver);
 	}
 
 	private void saveCard()

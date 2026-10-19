@@ -19,6 +19,7 @@ public interface CodexGearRoadmapConfig extends Config
 	String OLD_ON_TASK = "onTask";
 	String FOLLOW_TASK = "followTask";
 	String NAME_ON_CARD = "nameOnCard";
+	String WORTH_ON_CARD = "worthOnCard";
 
 	@ConfigSection(
 		name = "Fighting",
@@ -143,5 +144,16 @@ public interface CodexGearRoadmapConfig extends Config
 	default boolean nameOnCard()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = WORTH_ON_CARD,
+		name = "Worth on cards",
+		description = "Show your coins, and how far they go toward your savings goal, on the road card; off, it can be shared without them",
+		position = 3
+	)
+	default boolean worthOnCard()
+	{
+		return false;
 	}
 }

@@ -75,12 +75,21 @@ public final class RoadCard
 		return "+" + share + "% damage " + (ironman ? "for gear worth " : "for ") + Format.coins(total);
 	}
 
-	/** Renders the card; pictures still loading are left out and onLoaded runs when one arrives. */
+	/** Renders the card with the coins on it; pictures still loading are left out and onLoaded runs when one arrives. */
 	public static BufferedImage render(Report report, String player, ItemIcons icons, long now, Runnable onLoaded)
+	{
+		return render(report, player, icons, now, onLoaded, true);
+	}
+
+	/**
+	 * @param worth whether the card may show what the player has: the coins at its foot and how far
+	 *     they go toward the savings goal. Off, a card can be shared without telling anyone your wealth.
+	 */
+	public static BufferedImage render(Report report, String player, ItemIcons icons, long now, Runnable onLoaded, boolean worth)
 	{
 		BufferedImage scratch = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D sg = scratch.createGraphics();
-		int height = content(sg, report, player, icons, now, onLoaded);
+		int height = content(sg, report, player, icons, now, onLoaded, worth);
 		sg.dispose();
 
 		BufferedImage image = new BufferedImage(WIDTH * SCALE, height * SCALE, BufferedImage.TYPE_INT_ARGB);
@@ -88,7 +97,7 @@ public final class RoadCard
 		g.scale(SCALE, SCALE);
 		Theme.smooth(g);
 		frame(g, height);
-		content(g, report, player, icons, now, onLoaded);
+		content(g, report, player, icons, now, onLoaded, worth);
 		g.dispose();
 		return image;
 	}
@@ -123,7 +132,7 @@ public final class RoadCard
 		}
 	}
 
-	private static int content(Graphics2D g, Report report, String player, ItemIcons icons, long now, Runnable onLoaded)
+	private static int content(Graphics2D g, Report report, String player, ItemIcons icons, long now, Runnable onLoaded, boolean worth)
 	{
 		Theme.smooth(g);
 		Roadmap map = report.getRoadmap();
@@ -196,7 +205,7 @@ public final class RoadCard
 		Savings.View savings = report.getSavings();
 		if (savings != null)
 		{
-			y = savings(g, savings, x, y, cw) + 12;
+			y = savings(g, savings, worth, x, y, cw) + 12;
 		}
 
 		List<Fights.Pick> fights = report.getFights();
@@ -234,10 +243,17 @@ public final class RoadCard
 		g.setFont(Theme.small());
 		g.setColor(Theme.TEXT_FAINT);
 		g.drawString("Codex Gear Roadmap for RuneLite", x, y + small.getAscent());
-		String coins = report.isIronman() ? "Ironman" : map.getCoins() <= 0 ? "No coins yet" : Format.coins(map.getCoins()) + " in coins";
+		String coins = foot(report, worth);
 		g.drawString(coins, x + cw - small.stringWidth(coins), y + small.getAscent());
 		y += small.getHeight();
 		return y + PAD;
+	}
+
+	/** The card's foot: "441.8M in coins", "Ironman", or nothing when worth is kept off the card. */
+	static String foot(Report report, boolean worth)
+	{
+		long coins = report.getRoadmap().getCoins();
+		return report.isIronman() ? "Ironman" : !worth ? "" : coins <= 0 ? "No coins yet" : Format.coins(coins) + " in coins";
 	}
 
 	/** Damage now and at the road's end, the kill time each way and the max hit. */
@@ -496,12 +512,14 @@ public final class RoadCard
 	}
 
 	/** The savings goal as a ribbon: how far the coins go and, with Ledger, roughly how many days are left. */
-	private static int savings(Graphics2D g, Savings.View v, int x, int y, int cw)
+	private static int savings(Graphics2D g, Savings.View v, boolean worth, int x, int y, int cw)
 	{
 		boolean done = v.isOwned() || v.isAffordable();
+		// Without worth on the card, how far the coins go (a share, a bar, what is left) stays off it.
 		String pace = done ? "" : v.getDays() > 0 ? "about " + v.getDays() + (v.getDays() == 1 ? " day" : " days") + " at my pace"
-			: Format.coins(v.getRemaining()) + " to go";
-		int h = pace.isEmpty() ? 34 : 48;
+			: worth ? Format.coins(v.getRemaining()) + " to go" : "";
+		boolean bar = worth || v.isOwned();
+		int h = pace.isEmpty() ? (bar ? 34 : 26) : bar ? 48 : 34;
 		RoundRectangle2D box = new RoundRectangle2D.Float(x + 0.5f, y + 0.5f, cw - 1, h - 1, Theme.RADIUS, Theme.RADIUS);
 		g.setPaint(new GradientPaint(x, y, Theme.CARD_TOP, x, y + h, Theme.CARD));
 		g.fill(box);
@@ -512,7 +530,7 @@ public final class RoadCard
 		String tag = v.isOwned() ? "SAVED FOR" : "SAVING FOR";
 		g.setColor(done ? Theme.TEAL : Theme.GOLD);
 		g.drawString(tag, x + 9, y + 7 + small.getAscent());
-		String pct = v.isOwned() ? "yours" : Math.round(v.getProgress() * 100) + "%";
+		String pct = v.isOwned() ? "yours" : !worth ? (v.isAffordable() ? "in reach" : "") : Math.round(v.getProgress() * 100) + "%";
 		g.setColor(done ? Theme.TEAL : Theme.GOLD_BRIGHT);
 		g.drawString(pct, x + cw - 9 - small.stringWidth(pct), y + 7 + small.getAscent());
 		g.setFont(Theme.body());
@@ -520,11 +538,14 @@ public final class RoadCard
 		int tx = x + 9 + small.stringWidth(tag) + 8;
 		ProgressRing.drawShadowed(g, clip(v.getOption().getName(), fm, x + cw - 9 - small.stringWidth(pct) - 8 - tx), tx,
 			y + 7 + small.getAscent(), Theme.TEXT);
-		int by = y + 24;
-		g.setColor(Theme.INK_DEEP);
-		g.fill(new RoundRectangle2D.Float(x + 9, by, cw - 18, 4, 4, 4));
-		g.setPaint(new GradientPaint(x + 9, 0, Theme.GOLD_DIM, x + cw - 9, 0, done ? Theme.TEAL : Theme.GOLD_BRIGHT));
-		g.fill(new RoundRectangle2D.Float(x + 9, by, (float) Math.max(4, (cw - 18) * Math.min(1, v.isOwned() ? 1 : v.getProgress())), 4, 4, 4));
+		int by = bar ? y + 24 : y + 14;
+		if (bar)
+		{
+			g.setColor(Theme.INK_DEEP);
+			g.fill(new RoundRectangle2D.Float(x + 9, by, cw - 18, 4, 4, 4));
+			g.setPaint(new GradientPaint(x + 9, 0, Theme.GOLD_DIM, x + cw - 9, 0, done ? Theme.TEAL : Theme.GOLD_BRIGHT));
+			g.fill(new RoundRectangle2D.Float(x + 9, by, (float) Math.max(4, (cw - 18) * Math.min(1, v.isOwned() ? 1 : v.getProgress())), 4, 4, 4));
+		}
 		g.setFont(Theme.small());
 		g.setColor(Theme.TEXT_MUTED);
 		if (!pace.isEmpty())

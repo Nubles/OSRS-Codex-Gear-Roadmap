@@ -19,6 +19,7 @@ import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
 import com.codex.gearroadmap.overlay.UpgradePlaque;
+import com.codex.gearroadmap.ui.CardPictures;
 import com.codex.gearroadmap.ui.Format;
 import com.codex.gearroadmap.ui.GearRoadmapPanel;
 import com.codex.gearroadmap.ui.IconWatch;
@@ -300,6 +301,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			}
 		});
 		panel.setShowName(config.nameOnCard());
+		panel.setShowWorth(config.worthOnCard());
 		navButton = NavigationButton.builder()
 			.tooltip("Codex Gear Roadmap")
 			.icon(Sigil.icon(16))
@@ -343,6 +345,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		overlayManager.remove(plaque);
 		clientToolbar.removeNavigation(navButton);
 		plaque.clear();
+		// A card still waiting for its pictures is never saved or copied once the plugin is off.
+		CardPictures.cancel();
 		generation.incrementAndGet();
 		clientThread.invokeLater(this::forget);
 		panel = null;
@@ -492,14 +496,19 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			plaque.clear();
 		}
-		if (CodexGearRoadmapConfig.NAME_ON_CARD.equals(event.getKey()))
+		if (CodexGearRoadmapConfig.NAME_ON_CARD.equals(event.getKey()) || CodexGearRoadmapConfig.WORTH_ON_CARD.equals(event.getKey()))
 		{
-			// Only the road card, drawn when asked for, uses it: nothing to plan again.
+			// Only the road card, drawn when asked for, uses them: nothing to plan again.
 			GearRoadmapPanel target = panel;
 			boolean showName = config.nameOnCard();
+			boolean showWorth = config.worthOnCard();
 			if (target != null)
 			{
-				SwingUtilities.invokeLater(() -> target.setShowName(showName));
+				SwingUtilities.invokeLater(() ->
+				{
+					target.setShowName(showName);
+					target.setShowWorth(showWorth);
+				});
 			}
 			return;
 		}
@@ -898,8 +907,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			return;
 		}
-		// The same upgrade on the road is not claimed a second time.
+		// The same upgrade on the road is not claimed a second time, but it is still on the road
+		// behind: the goal met is the biggest buy of all, and its plaque said so already.
 		claimed.add(goal.getName());
+		if (taskWatch.isSettled())
+		{
+			rememberClaim(goal.getName());
+		}
 		Gear icon = pieces.get(0);
 		for (Gear g : pieces)
 		{
@@ -1029,6 +1043,27 @@ public class CodexGearRoadmapPlugin extends Plugin
 		goalAnnounced = false;
 		saveGoal();
 		dirty = true;
+	}
+
+	/** Puts a stop of the latest road on the road behind, if it is one. */
+	private void rememberClaim(String name)
+	{
+		Roadmap map = lastRoadmap;
+		if (map == null)
+		{
+			return;
+		}
+		for (Roadmap.Step step : map.getPath())
+		{
+			Roadmap.Option option = step.getOption();
+			if (option.getName().equals(name))
+			{
+				claims.add(new Claims.Claim(option.getName(), option.getIcon().getId(), option.getGain(), map.getTarget().getName(),
+					System.currentTimeMillis()));
+				saveClaims();
+				return;
+			}
+		}
 	}
 
 	private void loadClaims()
