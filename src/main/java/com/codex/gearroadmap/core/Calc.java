@@ -103,6 +103,7 @@ public final class Calc
 				}
 				r = melee(loadout, totals, fighter, target, type, stance);
 			}
+			r = r.timesUptime(target.uptime(styleKind.name()));
 			if (r.isBetterThan(best))
 			{
 				best = r;

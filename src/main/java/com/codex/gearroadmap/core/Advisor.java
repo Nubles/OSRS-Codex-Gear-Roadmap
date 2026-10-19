@@ -303,7 +303,8 @@ public final class Advisor
 			Roadmap.Option option = new Roadmap.Option(pick.name, pick.pieces, pick.icon(), pickCost, plan.dps() - base, base, plan,
 				null, null, pick.note, pick.ammo);
 			path.add(new Roadmap.Step(option, spent, spent <= coins));
-			current = next;
+			// Build the next step on the loadout this one showed, or its gain is counted twice.
+			current = next.keeping(plan);
 		}
 		return path;
 	}

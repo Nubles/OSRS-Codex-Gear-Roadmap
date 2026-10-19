@@ -97,8 +97,8 @@ public class SavingsTest
 	@Test
 	public void goalFromAnotherStyleAddsNothingHereButStaysPriced()
 	{
-		// A savings goal stays put when the player aims elsewhere: Vorkath cannot be hurt by melee
-		// any better with a magic staff, so the gain may be nothing, yet the price still counts.
+		// A savings goal stays put when the player aims elsewhere: a mystic fire staff does nothing for
+		// a Vorkath loadout built on a blowpipe, so the gain may be nothing, yet the price still counts.
 		Target vorkath = data.target("Vorkath");
 		Roadmap map = advisor.plan(Fixtures.midGame(data), Fixtures.midGameFighter(), vorkath, Fixtures.prices(data), 0,
 			goal("Mystic fire staff"));

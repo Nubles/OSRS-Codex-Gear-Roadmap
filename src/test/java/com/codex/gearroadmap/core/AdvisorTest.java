@@ -146,4 +146,37 @@ public class AdvisorTest
 		}
 		assertNull(map.getPath().isEmpty() ? "empty" : null);
 	}
+
+	@Test
+	public void vorkathRoadDoesNotSwapToMeleeForACheapSword()
+	{
+		// Vorkath's acid phase and fire bombs keep a melee player walking while a ranger keeps shooting.
+		// Before melee counted at 80% there, a 60k dragon sword with the salve (e) out-damaged the
+		// blowpipe on paper, and the whole road turned into melee gear.
+		Target vorkath = data.target("Vorkath");
+		assertEquals(80, vorkath.uptime("Melee"));
+		assertEquals(100, vorkath.uptime("Ranged"));
+		assertEquals(100, data.target("General Graardor").uptime("Melee"));
+		Roadmap map = advisor.plan(Fixtures.midGame(data), Fixtures.midGameFighter(), vorkath, Fixtures.prices(data), 0);
+		double previous = map.getNow().dps();
+		for (Roadmap.Step step : map.getPath())
+		{
+			Roadmap.Option o = step.getOption();
+			assertFalse(o.getName().contains("Dragon sword"));
+			// Each step builds on the loadout the step before showed, so no gain is counted twice.
+			assertEquals(o.getName(), previous + o.getGain(), o.getAfter().dps(), 1e-9);
+			assertTrue(o.getName(), o.getGain() > 0);
+			previous = o.getAfter().dps();
+		}
+
+		// The melee figure itself is the formula's damage times the uptime.
+		Set<Gear> owned = Fixtures.midGame(data);
+		owned.add(data.named("Dragon sword"));
+		Planner planner = new Planner(data);
+		double atVorkath = planner.optimise(owned, Fixtures.midGameFighter(), vorkath).get(Result.Kind.MELEE).dps();
+		Target twin = new Target("Twin", "Boss", vorkath.getHp(), vorkath.getDefence(), vorkath.getMagic(),
+			new int[]{26, 108, 108, 240, 26, 26, 26}, 7, vorkath.getAttributes(), true);
+		double full = planner.optimise(owned, Fixtures.midGameFighter(), twin).get(Result.Kind.MELEE).dps();
+		assertEquals(full * 0.8, atVorkath, 1e-9);
+	}
 }

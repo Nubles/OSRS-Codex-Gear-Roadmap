@@ -3,6 +3,7 @@ package com.codex.gearroadmap.data;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** A monster the player can aim their gear at, with the stats that defend against each attack. */
 public final class Target
@@ -30,6 +31,7 @@ public final class Target
 	private List<String> only;
 	private boolean wild;
 	private int fa;
+	private Map<String, Integer> up;
 
 	public Target()
 	{
@@ -157,6 +159,17 @@ public final class Target
 	public String toString()
 	{
 		return name;
+	}
+
+	/**
+	 * Percent of the fight this kind of attack can keep hitting, against what the damage formulas assume.
+	 * Vorkath's acid phase and fire bombs keep a melee player walking and off him, while ranged and magic
+	 * attack through them, so his melee damage counts at 80%. Every other target is 100.
+	 */
+	public int uptime(String kind)
+	{
+		Integer pct = up == null ? null : up.get(kind.toLowerCase(Locale.ROOT));
+		return pct == null ? 100 : Math.max(1, Math.min(100, pct));
 	}
 
 	/** Whether the target can be hurt with this kind of attack: melee, ranged or magic. */

@@ -98,6 +98,16 @@ public final class Result
 		return dps <= 0 ? Double.POSITIVE_INFINITY : target.getHp() / dps;
 	}
 
+	/** The same attack landing only this share of the fight, as when a phase keeps the player off the target. */
+	Result timesUptime(int percent)
+	{
+		if (percent >= 100 || kind == null)
+		{
+			return this;
+		}
+		return new Result(kind, dps * percent / 100.0, maxHit, accuracy, ticks, style, prayer, spell);
+	}
+
 	public boolean isBetterThan(Result other)
 	{
 		return other == null || dps > other.dps + 1e-9;

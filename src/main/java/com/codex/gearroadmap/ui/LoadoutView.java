@@ -119,6 +119,12 @@ final class LoadoutView
 		stack.add(Rows.check(Mark.Kind.NOTE, styleLine(r), r.getPrayer() == null ? "No prayer" : r.getPrayer(), null));
 		stack.add(Rows.check(Mark.Kind.NOTE, report.getBoosts() == null ? "No boosts" : report.getBoosts(),
 			pieces(plan.getLoadout()) + " pieces worn", null));
+		int uptime = map.getTarget().uptime(r.getKind().name());
+		if (uptime < 100)
+		{
+			stack.add(Rows.check(Mark.Kind.NOTE, r.getKind() + " counted at " + uptime + "%",
+				map.getTarget().getName() + "'s phases keep you off", null));
+		}
 		Boolean slayer = report.getSlayer();
 		if (slayer != null)
 		{
