@@ -132,7 +132,7 @@ final class RoadmapView
 					: " Selling them would pay " + share + "% of " + next.getName() + ".");
 			}
 		}
-		text.append(" Gear kept for its effect (dragonfire shields, slayer and tank gear) is never listed.");
+		text.append(" Gear kept for its effect (dragonfire shields, slayer and tank gear), skilling tools and untradeables are never listed.");
 		stack.add(Rows.note(text.toString(), 190));
 	}
 

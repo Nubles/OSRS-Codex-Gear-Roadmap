@@ -41,7 +41,7 @@ public class OutgrownTest
 		// A rune scimitar beside a whip and a dragon scimitar helps against nothing.
 		owned.add(data.named("Rune scimitar"));
 		List<Roadmap.Survey> survey = advisor.survey(owned, fighter);
-		Outgrown o = Outgrown.of(owned, survey, g -> advisor.planner().wieldable(g, fighter), id -> 60_000L);
+		Outgrown o = Outgrown.of(owned, survey, g -> advisor.planner().wieldable(g, fighter), g -> true, id -> 60_000L);
 		System.out.println("  outgrown: " + names(o));
 		assertTrue(names(o).contains("Rune scimitar"));
 		// The whip is worn somewhere, so it is not.
@@ -58,9 +58,9 @@ public class OutgrownTest
 		Set<Gear> owned = new LinkedHashSet<>(Fixtures.midGame(data));
 		owned.add(data.named("Rune scimitar"));
 		List<Roadmap.Survey> survey = advisor.survey(owned, fighter);
-		assertTrue("too cheap to bother with", Outgrown.of(owned, survey, g -> true, id -> 20_000L).isEmpty());
-		assertTrue("not yet wieldable", Outgrown.of(owned, survey, g -> false, id -> 60_000L).isEmpty());
-		assertTrue("nothing surveyed", Outgrown.of(owned, Collections.emptyList(), g -> true, id -> 60_000L).isEmpty());
+		assertTrue("too cheap to bother with", Outgrown.of(owned, survey, g -> true, g -> true, id -> 20_000L).isEmpty());
+		assertTrue("not yet wieldable", Outgrown.of(owned, survey, g -> false, g -> true, id -> 60_000L).isEmpty());
+		assertTrue("nothing surveyed", Outgrown.of(owned, Collections.emptyList(), g -> true, g -> true, id -> 60_000L).isEmpty());
 	}
 
 	@Test
@@ -71,5 +71,32 @@ public class OutgrownTest
 		assertTrue(Outgrown.kept(data.named("Granite maul")));
 		assertTrue(Outgrown.kept(data.named("Dragon claws")));
 		assertFalse(Outgrown.kept(data.named("Rune scimitar")));
+	}
+
+	@Test
+	public void skillingToolsAndUtilityStavesAreKept()
+	{
+		// Tools with attack bonuses are still tools: a dragon pickaxe is never "outgrown" combat gear.
+		for (String name : new String[]{"Dragon pickaxe", "Dragon axe", "Dragon harpoon", "3rd Age pickaxe", "Infernal axe",
+			"Dragon felling axe", "Toxic staff of the dead", "Staff of light", "Mystic smoke staff", "Smoke battlestaff",
+			"Staff of fire", "Twisted slayer helmet (i)", "Hydra slayer helmet (i)"})
+		{
+			assertTrue(name, Outgrown.kept(data.named(name)));
+		}
+		// A weapon named for its axe is still a weapon.
+		assertFalse(Outgrown.kept(data.named("Soulreaper axe")));
+		assertFalse(Outgrown.kept(data.named("Rune battleaxe")));
+	}
+
+	@Test
+	public void gearThatCannotBeSoldIsNeverOutgrown()
+	{
+		Fighter fighter = Fixtures.midGameFighter();
+		Set<Gear> owned = new LinkedHashSet<>(Fixtures.midGame(data));
+		owned.add(data.named("Rune scimitar"));
+		List<Roadmap.Survey> survey = advisor.survey(owned, fighter);
+		// RuneLite prices an untradeable piece by what it was made from, so a price alone is no proof it sells.
+		Outgrown o = Outgrown.of(owned, survey, g -> advisor.planner().wieldable(g, fighter), g -> false, id -> 60_000L);
+		assertTrue(o.isEmpty());
 	}
 }

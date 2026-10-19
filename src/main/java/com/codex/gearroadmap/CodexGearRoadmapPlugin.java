@@ -162,6 +162,9 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** Worn and carried gear by id, with how many of each (ammunition is counted by the stack). */
 	private Map<Integer, Long> worn = Collections.emptyMap();
 	private Map<Integer, Long> inventory = Collections.emptyMap();
+	/** Ammunition held in Dizana's quiver, which is in no item container: its id (0 for none) and how many. */
+	private int quiverId;
+	private long quiverAmount;
 	private Bank bank;
 	/** Quantities of the banked gear as seen this login, or null while the bank is only known from a save. */
 	private Map<Integer, Long> bankCounts;
@@ -262,6 +265,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 				loadBank();
 				readContainer(InventoryID.WORN);
 				readContainer(InventoryID.INV);
+				readQuiver();
 				dirty = true;
 			}
 		});
@@ -304,6 +308,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		holdings = Holdings.NONE;
 		worn = Collections.emptyMap();
 		inventory = Collections.emptyMap();
+		quiverId = 0;
+		quiverAmount = 0;
 		inventoryCoins = 0;
 		ancients = null;
 		lastRoadmap = null;
@@ -499,6 +505,17 @@ public class CodexGearRoadmapPlugin extends Plugin
 		{
 			dirty = true;
 		}
+		else if (event.getVarbitId() == -1 && (event.getVarpId() == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO
+			|| event.getVarpId() == VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT))
+		{
+			// Every arrow fired moves the count: only a change in what is owned re-plans.
+			Set<Integer> before = ownedIds();
+			readQuiver();
+			if (!ownedIds().equals(before))
+			{
+				dirty = true;
+			}
+		}
 		else if (event.getVarbitId() == VarbitID.SLAYER_TARGET_BOSSID
 			|| event.getVarbitId() == -1 && TASK_VARPS.contains(event.getVarpId()))
 		{
@@ -620,6 +637,10 @@ public class CodexGearRoadmapPlugin extends Plugin
 	{
 		Map<Integer, Long> total = new HashMap<>(worn);
 		inventory.forEach((id, n) -> total.merge(id, n, Long::sum));
+		if (quiverId > 0 && quiverAmount > 0)
+		{
+			total.merge(quiverId, quiverAmount, Long::sum);
+		}
 		// A quantity never seen stays unknown, and an unknown stack counts whatever else is held.
 		holdings.getGear().forEach((id, n) -> total.merge(id, n, (a, b) -> a == Holdings.UNKNOWN || b == Holdings.UNKNOWN ? Holdings.UNKNOWN : a + b));
 		Set<Integer> ids = new HashSet<>();
@@ -632,6 +653,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 			}
 		});
 		return ids;
+	}
+
+	/** The ammunition in Dizana's quiver, kept in varps wherever the quiver is. */
+	private void readQuiver()
+	{
+		quiverId = client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO);
+		quiverAmount = Math.max(0, client.getVarpValue(VarPlayerID.DIZANAS_QUIVER_TEMP_AMMO_AMOUNT));
 	}
 
 	private long coins()
@@ -1116,9 +1144,15 @@ public class CodexGearRoadmapPlugin extends Plugin
 				prices.put(id, price);
 			}
 		}
-		// Owned pieces too, though no upgrade buys them, so outgrown gear has a price to sell at.
+		// Owned pieces too, though no upgrade buys them, so outgrown gear has a price to sell at. Only
+		// tradeable ones can be sold: an untradeable piece is priced by what it was made from.
+		Set<Integer> sellable = new HashSet<>();
 		for (Gear g : owned)
 		{
+			if (itemManager.getItemComposition(g.getId()).isTradeable())
+			{
+				sellable.add(g.getId());
+			}
 			if (!prices.containsKey(g.getId()))
 			{
 				long price = itemManager.getItemPrice(g.getId());
@@ -1182,7 +1216,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 						.withExtras(tally, fights, Levels.ahead(advisor.planner().calc(), map, fighter))
 						// Ironmen cannot sell, so nothing is outgrown for coins.
 						.withOutgrown(ironman ? null : Outgrown.of(owned, cached.rows, g -> advisor.planner().wieldable(g, fighter),
-							id -> prices.getOrDefault(id, 0L)));
+							g -> sellable.contains(g.getId()), id -> prices.getOrDefault(id, 0L)));
 					// The goal's standing is settled on the client thread, where the goal and coins live.
 					clientThread.invokeLater(() ->
 					{
