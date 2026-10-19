@@ -194,4 +194,25 @@ public class FightsTest
 			assertEquals(noTask.get(i).getSeconds(), onTaskToday.get(i).getSeconds(), 1e-6);
 		}
 	}
+
+	@Test
+	public void readsTheJournalSessionChroniclesOwnCodeWrites() throws IOException
+	{
+		// chronicle-journal.json is a byte-for-byte copy of the fixture Session Chronicle's JournalFixtureTest
+		// proves its writer produces: four Vorkath kills (the game counted 101 to 104), two of them on a Blue
+		// dragons task, then an hour of Mining.
+		String json;
+		try (java.io.InputStream in = FightsTest.class.getResourceAsStream("chronicle-journal.json"))
+		{
+			json = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+		}
+		Fights.Tally tally = Fights.tally(journal(json), data.targets(), 1_790_100_000_000L);
+		Target vorkath = data.target("Vorkath");
+		assertEquals(1, tally.getKills().size());
+		assertEquals(4, (int) tally.getKills().get(vorkath));
+		assertEquals(2, tally.onTask(vorkath));
+		assertEquals(2, tally.offTask(vorkath));
+		assertEquals(0, tally.unknown(vorkath));
+		assertEquals(1, tally.getSessions());
+	}
 }
