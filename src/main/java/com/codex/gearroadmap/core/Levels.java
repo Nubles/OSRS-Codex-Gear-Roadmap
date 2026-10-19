@@ -32,9 +32,16 @@ public final class Levels
 		private final int maxHit;
 		private final boolean newMaxHit;
 		private final long worth;
+		private final String prayer;
 
 		Step(String skill, int from, int to, double gain, double share, int maxHit, boolean newMaxHit, long worth)
 		{
+			this(skill, from, to, gain, share, maxHit, newMaxHit, worth, null);
+		}
+
+		Step(String skill, int from, int to, double gain, double share, int maxHit, boolean newMaxHit, long worth, String prayer)
+		{
+			this.prayer = prayer;
 			this.skill = skill;
 			this.from = from;
 			this.to = to;
@@ -84,6 +91,12 @@ public final class Levels
 			return newMaxHit;
 		}
 
+		/** The stronger prayer the level unlocks, such as Piety at 70 Defence, or null. */
+		public String getPrayer()
+		{
+			return prayer;
+		}
+
 		/** What the same damage would cost in gear at the road's average price for it, or 0 with no road. */
 		public long getWorth()
 		{
@@ -91,17 +104,20 @@ public final class Levels
 		}
 	}
 
-	/** The skills that power an attack of this kind. */
+	/**
+	 * The skills that power an attack of this kind, and Prayer and Defence, whose levels unlock the
+	 * stronger prayers (Piety and Rigour at 70 Defence, Augury at 77 Prayer).
+	 */
 	static String[] skills(Result.Kind kind)
 	{
 		switch (kind)
 		{
 			case RANGED:
-				return new String[]{"Ranged"};
+				return new String[]{"Ranged", "Prayer", "Defence"};
 			case MAGIC:
-				return new String[]{"Magic"};
+				return new String[]{"Magic", "Prayer", "Defence"};
 			default:
-				return new String[]{"Strength", "Attack"};
+				return new String[]{"Strength", "Attack", "Prayer", "Defence"};
 		}
 	}
 
@@ -136,8 +152,9 @@ public final class Levels
 				double gain = next.getDps() - r.getDps();
 				if (gain >= r.getDps() * MIN_SHARE)
 				{
+					String prayer = next.getPrayer() != null && !next.getPrayer().equals(r.getPrayer()) ? next.getPrayer() : null;
 					steps.add(new Step(skill, from, level, gain, gain / r.getDps(), next.getMaxHit(), next.getMaxHit() > r.getMaxHit(),
-						Math.round(gain * perDps)));
+						Math.round(gain * perDps), prayer));
 					break;
 				}
 			}

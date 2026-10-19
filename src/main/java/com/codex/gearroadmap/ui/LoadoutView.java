@@ -139,13 +139,17 @@ final class LoadoutView
 			boolean priced = false;
 			for (Levels.Step step : report.getLevels())
 			{
-				String what = (step.isNewMaxHit() ? "Max hit " + step.getMaxHit() : "Lands more often") + ", " + Format.fine(step.getShare()) + " DPS";
+				// Short enough for the sidebar beside the price; a long prayer name ("Incredible Reflexes and ...") is left to the tooltip.
+				String prayer = step.getPrayer() == null ? null : step.getPrayer().length() <= 13 ? step.getPrayer() : "Prayer";
+				String what = (prayer != null ? prayer : step.isNewMaxHit() ? "Max hit " + step.getMaxHit() : "Accuracy")
+					+ ", " + Format.fine(step.getShare()) + " DPS";
 				boolean worth = step.getWorth() > 0 && !report.isIronman();
 				priced |= worth;
 				Card row = Rows.line(new Mark(Mark.Kind.GOOD, 14), step.getSkill() + " " + step.getTo(), what,
 					worth ? Ui.label(Format.coins(step.getWorth()), Theme.small(), Theme.GOLD) : null, null);
 				row.setToolTipText("<html>" + step.getSkill() + " " + step.getFrom() + " to " + step.getTo() + " adds "
-					+ Format.gain(step.getGain()) + " DPS against " + Ui.escape(map.getTarget().getName()) + " in this loadout."
+					+ Format.gain(step.getGain()) + " DPS against " + Ui.escape(map.getTarget().getName()) + " in this loadout"
+					+ (step.getPrayer() != null ? ", as it unlocks " + step.getPrayer() : step.isNewMaxHit() ? "" : ", as more hits land") + "."
 					+ (worth ? "<br>The road ahead pays about that much for the same damage." : "") + "</html>");
 				stack.add(row);
 			}
