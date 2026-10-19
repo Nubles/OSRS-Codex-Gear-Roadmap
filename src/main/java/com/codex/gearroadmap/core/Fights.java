@@ -1,5 +1,8 @@
 package com.codex.gearroadmap.core;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.Target;
 import java.util.ArrayList;
@@ -22,6 +25,8 @@ public final class Fights
 {
 	/** Days of sessions counted. */
 	public static final int DAYS = 30;
+	/** More kills than one session could hold; a line claiming more is a damaged save and counts this many. */
+	public static final int MAX_KILLS = 20_000;
 	private static final int ON = 0;
 	private static final int OFF = 1;
 	/** Fought targets weighed at most, the ones that took the most fighting time first. */
@@ -55,6 +60,77 @@ public final class Fights
 		}
 	}
 
+	/**
+	 * Chronicle's saved journal (a list) or live session (one), as sessions; empty when it cannot be
+	 * read. A session that cannot be read is left out on its own, and so is a kill line within one.
+	 */
+	public static List<Logged> read(Gson gson, String json, boolean list)
+	{
+		if (json == null || json.trim().isEmpty())
+		{
+			return Collections.emptyList();
+		}
+		try
+		{
+			// The quick way, whenever it all reads whole; Chronicle's journal is read on every replan.
+			List<Logged> whole = list ? gson.fromJson(json, LOGGED_LIST) : Collections.singletonList(gson.fromJson(json, Logged.class));
+			List<Logged> out = new ArrayList<>();
+			for (Logged s : whole)
+			{
+				if (s != null && s.kills != null)
+				{
+					s.kills.values().removeIf(line -> line == null);
+					out.add(s);
+				}
+			}
+			return out;
+		}
+		catch (RuntimeException e)
+		{
+			// Something in it is broken (or it is not a journal at all): read it session by session below.
+		}
+		JsonElement root = Saved.tree(gson, json);
+		List<JsonElement> sessions = new ArrayList<>();
+		if (list && root != null && root.isJsonArray())
+		{
+			root.getAsJsonArray().forEach(sessions::add);
+		}
+		else if (!list && root != null && root.isJsonObject())
+		{
+			sessions.add(root);
+		}
+		List<Logged> out = new ArrayList<>();
+		for (JsonElement e : sessions)
+		{
+			if (!e.isJsonObject())
+			{
+				continue;
+			}
+			JsonObject o = e.getAsJsonObject();
+			Long startedAt = Saved.whole(o.get("startedAt"));
+			JsonElement kills = o.get("kills");
+			if (startedAt == null || kills == null || !kills.isJsonObject())
+			{
+				continue;
+			}
+			Map<String, Line> lines = new HashMap<>();
+			for (Map.Entry<String, JsonElement> k : kills.getAsJsonObject().entrySet())
+			{
+				Line line = Saved.as(gson, k.getValue(), Line.class);
+				if (line != null)
+				{
+					lines.put(k.getKey(), line);
+				}
+			}
+			out.add(new Logged(startedAt, lines));
+		}
+		return out;
+	}
+
+	private static final java.lang.reflect.Type LOGGED_LIST = new com.google.gson.reflect.TypeToken<List<Logged>>()
+	{
+	}.getType();
+
 	/** One of Chronicle's kill lines, counted the way Chronicle counts it. */
 	public static final class Line
 	{
@@ -83,22 +159,22 @@ public final class Fights
 
 		int count()
 		{
-			int counted = 0;
+			long counted = 0;
 			if (counters != null)
 			{
 				for (int[] range : counters.values())
 				{
-					if (range != null && range.length == 2)
+					if (range != null && range.length == 2 && range[1] >= range[0])
 					{
-						counted += range[1] - range[0] + 1;
+						counted += (long) range[1] - range[0] + 1;
 					}
 				}
 			}
-			else if (firstKc > 0)
+			else if (firstKc > 0 && lastKc >= firstKc)
 			{
-				counted = lastKc - firstKc + 1;
+				counted = (long) lastKc - firstKc + 1;
 			}
-			return Math.max(looted, counted);
+			return (int) Math.min(MAX_KILLS, Math.max(Math.max(0, looted), counted));
 		}
 
 		boolean isKill()

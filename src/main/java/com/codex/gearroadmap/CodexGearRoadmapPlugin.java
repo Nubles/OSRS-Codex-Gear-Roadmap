@@ -11,6 +11,7 @@ import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Outgrown;
+import com.codex.gearroadmap.core.Saved;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.Swap;
 import com.codex.gearroadmap.core.SlayerTask;
@@ -28,11 +29,10 @@ import com.codex.gearroadmap.ui.ShareActions;
 import com.codex.gearroadmap.ui.Sigil;
 import com.codex.gearroadmap.ui.Theme;
 import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.inject.Provides;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
@@ -117,9 +117,6 @@ public class CodexGearRoadmapPlugin extends Plugin
 	static final String CHRONICLE_GROUP = "codexsessionchronicle";
 	static final String CHRONICLE_JOURNAL = "journal";
 	static final String CHRONICLE_CURRENT = "current";
-	private static final Type LOGGED_LIST = new TypeToken<List<Fights.Logged>>()
-	{
-	}.getType();
 	private static final Skill[] SKILLS = {
 		Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC, Skill.PRAYER, Skill.HITPOINTS, Skill.AGILITY,
 	};
@@ -817,25 +814,40 @@ public class CodexGearRoadmapPlugin extends Plugin
 		loadClaims();
 		readWorth();
 		readChronicle();
-		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY);
-		if (json != null && !json.isEmpty())
+		Bank saved = readBank(gson, configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY));
+		if (saved != null)
 		{
-			try
-			{
-				Bank saved = gson.fromJson(json, Bank.class);
-				if (saved != null && saved.items != null)
-				{
-					bank = saved;
-					bankCounts = null;
-					bankSeenAt = seenAt();
-				}
-			}
-			catch (JsonParseException e)
-			{
-				log.warn("Could not read the saved bank, waiting to see it again", e);
-			}
+			bank = saved;
+			bankCounts = null;
+			bankSeenAt = seenAt();
 		}
 		readSteward();
+	}
+
+	/**
+	 * This plugin's saved bank, or null when there is none or it cannot be read; it waits to see the
+	 * bank again then. An id that is not one, or coins that are not a count, cost only themselves.
+	 */
+	static Bank readBank(Gson gson, String json)
+	{
+		JsonObject o = Saved.object(gson, json);
+		JsonElement items = o == null ? null : o.get("items");
+		if (items == null || !items.isJsonArray())
+		{
+			return null;
+		}
+		Bank bank = new Bank();
+		for (JsonElement e : items.getAsJsonArray())
+		{
+			Long id = Saved.whole(e);
+			if (id != null && id > 0 && id <= Integer.MAX_VALUE)
+			{
+				bank.items.add(id.intValue());
+			}
+		}
+		Long coins = Saved.whole(o.get("coins"));
+		bank.coins = coins == null ? 0 : Math.max(0, Math.min(coins, Saved.MAX_WORTH));
+		return bank;
 	}
 
 	/** When the saved bank was seen, or 0 for a bank saved before the time was kept. */
@@ -1068,21 +1080,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 
 	private void loadClaims()
 	{
-		claims = new Claims();
-		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, CLAIMS_KEY);
-		if (json == null || json.isEmpty())
-		{
-			return;
-		}
-		try
-		{
-			Claims saved = gson.fromJson(json, Claims.class);
-			claims = saved == null ? new Claims() : saved;
-		}
-		catch (JsonParseException e)
-		{
-			log.warn("Could not read the saved road behind", e);
-		}
+		claims = Claims.read(gson, configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, CLAIMS_KEY));
 	}
 
 	private void saveClaims()
@@ -1098,20 +1096,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		goal = null;
 		goalAffordable = null;
 		goalAnnounced = false;
-		String json = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, GOAL_KEY);
-		if (json == null || json.isEmpty())
-		{
-			return;
-		}
-		try
-		{
-			Savings.Goal saved = gson.fromJson(json, Savings.Goal.class);
-			goal = saved != null && saved.isValid() ? saved : null;
-		}
-		catch (JsonParseException e)
-		{
-			log.warn("Could not read the saved savings goal", e);
-		}
+		goal = Savings.readGoal(gson, configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, GOAL_KEY));
 	}
 
 	private void saveGoal()
@@ -1133,23 +1118,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** Reads Codex Ledger's saved net worth for this account; never writes it. Null when it is not installed. */
 	private void readWorth()
 	{
-		String json = configManager.getRSProfileConfiguration(LEDGER_GROUP, LEDGER_KEY);
-		if (json == null || json.isEmpty())
-		{
-			worth = null;
-			return;
-		}
-		try
-		{
-			Savings.Worth read = gson.fromJson(json, Savings.Worth.class);
-			worth = read == null || read.getTotal() <= 0 ? null : read;
-		}
-		catch (RuntimeException e)
-		{
-			// Another plugin's format may change under us; without it the goal simply has no pace.
-			log.debug("Could not read Codex Ledger's net worth", e);
-			worth = null;
-		}
+		// Another plugin's format may change under us; without it the goal simply has no pace.
+		worth = Savings.readWorth(gson, configManager.getRSProfileConfiguration(LEDGER_GROUP, LEDGER_KEY));
 	}
 
 	/** Reads Codex Session Chronicle's journal for this account; never writes it. Empty when it is not installed. */
@@ -1161,27 +1131,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** One of Chronicle's saved values as sessions: the journal is a list, the live session one. */
 	private List<Fights.Logged> readLogged(String key, boolean list)
 	{
-		String json = configManager.getRSProfileConfiguration(CHRONICLE_GROUP, key);
-		if (json == null || json.isEmpty())
-		{
-			return Collections.emptyList();
-		}
-		try
-		{
-			if (list)
-			{
-				List<Fights.Logged> read = gson.fromJson(json, LOGGED_LIST);
-				return read == null ? Collections.emptyList() : read;
-			}
-			Fights.Logged one = gson.fromJson(json, Fights.Logged.class);
-			return one == null ? Collections.emptyList() : Collections.singletonList(one);
-		}
-		catch (RuntimeException e)
-		{
-			// Another plugin's format may change under us; without it there is simply no "where you fight".
-			log.debug("Could not read Codex Session Chronicle's journal", e);
-			return Collections.emptyList();
-		}
+		// Another plugin's format may change under us; without it there is simply no "where you fight".
+		return Fights.read(gson, configManager.getRSProfileConfiguration(CHRONICLE_GROUP, key), list);
 	}
 
 	/** Adds the savings goal's standing to a report, and says so once the player's coins reach it. */

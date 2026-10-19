@@ -77,6 +77,9 @@ public final class Holdings
 		this.coins = coins;
 	}
 
+	/** How far ahead of this clock another plugin's clock may be. */
+	static final long CLOCK_SLACK_MS = 3_600_000L;
+
 	public static final Holdings NONE = new Holdings(Source.NONE, Collections.emptyMap(), 0);
 
 	public Source getSource()
@@ -107,6 +110,15 @@ public final class Holdings
 	 */
 	public static Shared readSteward(Gson gson, String json)
 	{
+		return readSteward(gson, json, System.currentTimeMillis());
+	}
+
+	/**
+	 * As {@link #readSteward(Gson, String)}, at a given time: a copy dated after it (a damaged save, or
+	 * a clock far off) is taken as undated, so it never passes for fresher than the bank seen just now.
+	 */
+	public static Shared readSteward(Gson gson, String json, long now)
+	{
 		if (json == null || json.trim().isEmpty())
 		{
 			return null;
@@ -131,11 +143,12 @@ public final class Holdings
 				Long qty = number(e.getValue());
 				if (id != null && id > 0 && qty != null && qty > 0 && items.size() < MAX_ITEMS)
 				{
-					items.put(id, qty);
+					// No stack holds more than this, whatever the copy claims.
+					items.put(id, Math.min(qty, Integer.MAX_VALUE));
 				}
 			}
 			Long savedAt = number(o.get("savedAt"));
-			return new Shared(items, savedAt == null ? 0 : savedAt);
+			return new Shared(items, savedAt == null || savedAt < 0 || savedAt > now + CLOCK_SLACK_MS ? 0 : savedAt);
 		}
 		catch (JsonParseException | IllegalStateException | UnsupportedOperationException e)
 		{

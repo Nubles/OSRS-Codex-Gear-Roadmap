@@ -1,5 +1,8 @@
 package com.codex.gearroadmap.core;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,6 +53,98 @@ public final class Savings
 		{
 			return name != null && !name.isEmpty() && ids != null && !ids.isEmpty();
 		}
+	}
+
+	/**
+	 * The saved savings goal, or null when there is none or it cannot be used: it needs a name and at
+	 * least one piece. A piece that is not an item id is left out on its own.
+	 */
+	public static Goal readGoal(Gson gson, String json)
+	{
+		JsonObject o = Saved.object(gson, json);
+		if (o == null)
+		{
+			return null;
+		}
+		JsonElement name = o.get("name");
+		JsonElement list = o.get("ids");
+		if (name == null || !name.isJsonPrimitive() || !name.getAsJsonPrimitive().isString() || list == null || !list.isJsonArray())
+		{
+			return null;
+		}
+		List<Integer> ids = new ArrayList<>();
+		for (JsonElement e : list.getAsJsonArray())
+		{
+			Long id = Saved.whole(e);
+			if (id != null && id > 0 && id <= Integer.MAX_VALUE)
+			{
+				ids.add(id.intValue());
+			}
+		}
+		Goal goal = new Goal(name.getAsString().trim(), ids);
+		return goal.isValid() ? goal : null;
+	}
+
+	/**
+	 * Codex Ledger's saved net worth, or null when it is not installed, has not begun or cannot be
+	 * read. Only "total" and "history" are read, so damage anywhere else in the ledger is no matter;
+	 * a point of history that cannot be read, or holds a worth no account has, is left out.
+	 */
+	public static Worth readWorth(Gson gson, String json)
+	{
+		if (json == null || json.trim().isEmpty())
+		{
+			return null;
+		}
+		try
+		{
+			// The quick way, which skips the rest of the ledger unread; used whenever the two fields read whole.
+			Worth whole = gson.fromJson(json, Worth.class);
+			if (whole == null || whole.total <= 0 || whole.total > Saved.MAX_WORTH)
+			{
+				return null;
+			}
+			List<Point> history = new ArrayList<>();
+			for (Point p : whole.getHistory())
+			{
+				if (p != null && p.t > 0 && p.v >= 0 && p.v <= Saved.MAX_WORTH)
+				{
+					history.add(p);
+				}
+			}
+			history.sort((a, b) -> Long.compare(a.t, b.t));
+			return new Worth(whole.total, history);
+		}
+		catch (RuntimeException e)
+		{
+			// Something in them is broken: read them point by point below.
+		}
+		JsonObject o = Saved.object(gson, json);
+		Long total = o == null ? null : Saved.whole(o.get("total"));
+		if (total == null || total <= 0 || total > Saved.MAX_WORTH)
+		{
+			return null;
+		}
+		List<Point> history = new ArrayList<>();
+		JsonElement list = o.get("history");
+		if (list != null && list.isJsonArray())
+		{
+			for (JsonElement e : list.getAsJsonArray())
+			{
+				if (!e.isJsonObject())
+				{
+					continue;
+				}
+				Long t = Saved.whole(e.getAsJsonObject().get("t"));
+				Long v = Saved.whole(e.getAsJsonObject().get("v"));
+				if (t != null && v != null && t > 0 && v >= 0 && v <= Saved.MAX_WORTH)
+				{
+					history.add(new Point(t, v));
+				}
+			}
+		}
+		history.sort((a, b) -> Long.compare(a.t, b.t));
+		return new Worth(total, history);
 	}
 
 	/** Net worth over time, as Codex Ledger saves it; only the fields Gear Roadmap reads. */
@@ -242,6 +337,11 @@ public final class Savings
 	 * to the latest, so one lucky drop counts for what it was rather than for every day after.
 	 * Null with less than a day of history to go on.
 	 */
+	public static Long paceOf(Worth worth, long now)
+	{
+		return pace(worth, now);
+	}
+
 	static Long pace(Worth worth, long now)
 	{
 		if (worth == null)
