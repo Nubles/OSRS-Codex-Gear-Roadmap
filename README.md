@@ -49,7 +49,7 @@ Gear Roadmap works on its own. If you also use these, it reads (never writes) wh
 - **[Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle)**: the kills it logged over the last 30 days, so the Targets tab can name the buy that would have saved you the most time where you actually fight.
 - **[Codex Bank Steward](https://github.com/Nubles/OSRS-Codex-Bank-Steward)**: its saved copy of your bank, so there is no need to open the bank first.
 
-Codex Plunder Pilot and Pest Control Pilot read the gear bank this plugin saves, and Codex Bank Steward reads its savings goal.
+Codex Quartermaster, Plunder Pilot and Pest Control Pilot read the gear bank this plugin saves, and Codex Bank Steward reads its savings goal.
 
 ## How the numbers work
 

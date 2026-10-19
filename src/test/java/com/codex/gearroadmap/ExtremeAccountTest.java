@@ -127,14 +127,32 @@ public class ExtremeAccountTest
 		{
 			work.run();
 		}
+		// Then sampled in a few rounds a moment apart, so a shared test machine busy for a while (a
+		// build beside it, a collection) shows the work's own time rather than its neighbours'.
 		double best = Double.MAX_VALUE;
-		for (int i = 0; i < 7; i++)
+		for (int round = 0; round < 4; round++)
 		{
-			long t = System.nanoTime();
-			work.run();
-			best = Math.min(best, (System.nanoTime() - t) / 1e6);
+			for (int i = 0; i < 7; i++)
+			{
+				long t = System.nanoTime();
+				work.run();
+				best = Math.min(best, (System.nanoTime() - t) / 1e6);
+			}
+			pause();
 		}
 		return best;
+	}
+
+	private static void pause()
+	{
+		try
+		{
+			Thread.sleep(25);
+		}
+		catch (InterruptedException e)
+		{
+			Thread.currentThread().interrupt();
+		}
 	}
 
 	private static void print(String what, double... ms)

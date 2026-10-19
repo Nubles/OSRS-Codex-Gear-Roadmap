@@ -237,7 +237,7 @@ public class DamagedSavesTest
 				j = journal.deepCopy();
 				j.get(1).getAsJsonObject().getAsJsonObject("kills").getAsJsonObject("vorkath").add(field, PARSER.parse(bad));
 				int n = vorkaths(Fights.read(GSON, j.toString(), true));
-				assertTrue(field + " = " + bad + " gave " + n, n >= 40 && n <= 40 + 100_000);
+				assertTrue(field + " = " + bad + " gave " + n, n >= 40 && n <= 40 + Fights.MAX_KILLS);
 			}
 			JsonObject live = journal.get(0).getAsJsonObject().deepCopy();
 			live.add("kills", PARSER.parse(bad));
@@ -258,6 +258,26 @@ public class DamagedSavesTest
 			int n = vorkaths(Fights.read(GSON, j.toString(), true));
 			assertTrue(line + " gave " + n, n >= 20 && n <= 20 + 2 * Fights.MAX_KILLS);
 		}
+	}
+
+	@Test
+	public void aLongGrindKeepsEveryKill()
+	{
+		// Chronicle runs one session across logins a few minutes apart, so a day's grind of one monster
+		// can file tens of thousands of kills on one line: real, and once counted as only 20,000.
+		JsonArray journal = new JsonArray();
+		journal.add(PARSER.parse("{\"startedAt\":" + (NOW - DAY) + ",\"playedMs\":64800000,\"kills\":{"
+			+ "\"vorkath\":{\"name\":\"Vorkath\",\"looted\":25000}}}"));
+		journal.add(PARSER.parse("{\"startedAt\":" + (NOW - 2 * DAY) + ",\"playedMs\":3600000,\"kills\":{"
+			+ "\"vorkath\":{\"name\":\"Vorkath\",\"looted\":10,\"firstKc\":50000,\"lastKc\":50009}}}"));
+		assertEquals(25_010, vorkaths(Fights.read(GSON, journal.toString(), true)));
+		// However many sessions a damaged journal holds, the sum never wraps below zero.
+		JsonArray many = new JsonArray();
+		for (int i = 0; i < 3_000; i++)
+		{
+			many.add(PARSER.parse("{\"startedAt\":" + (NOW - DAY + i) + ",\"kills\":{\"vorkath\":{\"name\":\"Vorkath\",\"looted\":2147483647}}}"));
+		}
+		assertTrue(vorkaths(Fights.read(GSON, many.toString(), true)) > 0);
 	}
 
 	@Test

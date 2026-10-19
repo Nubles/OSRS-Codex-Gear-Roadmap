@@ -25,8 +25,11 @@ public final class Fights
 {
 	/** Days of sessions counted. */
 	public static final int DAYS = 30;
-	/** More kills than one session could hold; a line claiming more is a damaged save and counts this many. */
-	public static final int MAX_KILLS = 20_000;
+	/**
+	 * More kills than one session could hold (one every game tick for a week); a line claiming more is
+	 * a damaged save and counts this many. A long day's grind of tens of thousands is real.
+	 */
+	public static final int MAX_KILLS = 1_000_000;
 	private static final int ON = 0;
 	private static final int OFF = 1;
 	/** Fought targets weighed at most, the ones that took the most fighting time first. */
@@ -345,7 +348,8 @@ public final class Fights
 				int n = line.count();
 				if (t != null && n > 0)
 				{
-					kills.merge(t, n, Integer::sum);
+					// Held at the ceiling, so a damaged journal of thousands of sessions never wraps below zero.
+					kills.merge(t, n, (a, b) -> (int) Math.min(Integer.MAX_VALUE, (long) a + b));
 					any = true;
 					if (line.tasks != null)
 					{
