@@ -1,0 +1,376 @@
+package com.codex.gearroadmap.core;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * A savings goal: one upgrade the player is putting coins aside for, how far their coins
+ * already go, and, when Codex Ledger keeps their net worth, how long the rest should take
+ * at the pace their wealth has grown over the last week.
+ */
+public final class Savings
+{
+	/** How far back the pace looks. */
+	public static final long WINDOW_MS = 7L * 24 * 3_600_000L;
+	/** A pace from less history than this would mostly be noise. */
+	public static final long MIN_SPAN_MS = 24 * 3_600_000L;
+	private static final long DAY_MS = 24 * 3_600_000L;
+	/** Past this many days an estimate says nothing useful. */
+	private static final int MAX_DAYS = 999;
+
+	/** The saved goal: the upgrade's name and one item id per piece, so it can be found again on any road. */
+	public static final class Goal
+	{
+		private String name;
+		private List<Integer> ids;
+
+		public Goal()
+		{
+		}
+
+		public Goal(String name, List<Integer> ids)
+		{
+			this.name = name;
+			this.ids = new ArrayList<>(ids);
+		}
+
+		public String getName()
+		{
+			return name == null ? "" : name;
+		}
+
+		public List<Integer> getIds()
+		{
+			return ids == null ? Collections.emptyList() : Collections.unmodifiableList(ids);
+		}
+
+		/** A goal read back from the profile is only usable with a name and at least one piece. */
+		public boolean isValid()
+		{
+			return name != null && !name.isEmpty() && ids != null && !ids.isEmpty();
+		}
+	}
+
+	/**
+	 * The saved savings goal, or null when there is none or it cannot be used: it needs a name and at
+	 * least one piece. A piece that is not an item id is left out on its own.
+	 */
+	public static Goal readGoal(Gson gson, String json)
+	{
+		JsonObject o = Saved.object(gson, json);
+		if (o == null)
+		{
+			return null;
+		}
+		JsonElement name = o.get("name");
+		JsonElement list = o.get("ids");
+		if (name == null || !name.isJsonPrimitive() || !name.getAsJsonPrimitive().isString() || list == null || !list.isJsonArray())
+		{
+			return null;
+		}
+		List<Integer> ids = new ArrayList<>();
+		for (JsonElement e : list.getAsJsonArray())
+		{
+			Long id = Saved.whole(e);
+			if (id != null && id > 0 && id <= Integer.MAX_VALUE)
+			{
+				ids.add(id.intValue());
+			}
+		}
+		Goal goal = new Goal(name.getAsString().trim(), ids);
+		return goal.isValid() ? goal : null;
+	}
+
+	/**
+	 * Codex Ledger's saved net worth, or null when it is not installed, has not begun or cannot be
+	 * read. Only "total" and "history" are read, so damage anywhere else in the ledger is no matter;
+	 * a point of history that cannot be read, or holds a worth no account has, is left out.
+	 */
+	public static Worth readWorth(Gson gson, String json)
+	{
+		if (json == null || json.trim().isEmpty())
+		{
+			return null;
+		}
+		try
+		{
+			// The quick way, which skips the rest of the ledger unread; used whenever the two fields read whole.
+			Worth whole = gson.fromJson(json, Worth.class);
+			if (whole == null || whole.total <= 0 || whole.total > Saved.MAX_WORTH)
+			{
+				return null;
+			}
+			List<Point> history = new ArrayList<>();
+			for (Point p : whole.getHistory())
+			{
+				if (p != null && p.t > 0 && p.v >= 0 && p.v <= Saved.MAX_WORTH)
+				{
+					history.add(p);
+				}
+			}
+			history.sort((a, b) -> Long.compare(a.t, b.t));
+			return new Worth(whole.total, history);
+		}
+		catch (RuntimeException e)
+		{
+			// Something in them is broken: read them point by point below.
+		}
+		JsonObject o = Saved.object(gson, json);
+		Long total = o == null ? null : Saved.whole(o.get("total"));
+		if (total == null || total <= 0 || total > Saved.MAX_WORTH)
+		{
+			return null;
+		}
+		List<Point> history = new ArrayList<>();
+		JsonElement list = o.get("history");
+		if (list != null && list.isJsonArray())
+		{
+			for (JsonElement e : list.getAsJsonArray())
+			{
+				if (!e.isJsonObject())
+				{
+					continue;
+				}
+				Long t = Saved.whole(e.getAsJsonObject().get("t"));
+				Long v = Saved.whole(e.getAsJsonObject().get("v"));
+				if (t != null && v != null && t > 0 && v >= 0 && v <= Saved.MAX_WORTH)
+				{
+					history.add(new Point(t, v));
+				}
+			}
+		}
+		history.sort((a, b) -> Long.compare(a.t, b.t));
+		return new Worth(total, history);
+	}
+
+	/** Net worth over time, as Codex Ledger saves it; only the fields Gear Roadmap reads. */
+	public static final class Worth
+	{
+		private long total;
+		private List<Point> history;
+
+		public Worth()
+		{
+		}
+
+		public Worth(long total, List<Point> history)
+		{
+			this.total = total;
+			this.history = history;
+		}
+
+		public long getTotal()
+		{
+			return total;
+		}
+
+		public List<Point> getHistory()
+		{
+			return history == null ? Collections.emptyList() : history;
+		}
+	}
+
+	/** One reading of net worth: when, and how much. Named as Codex Ledger names them. */
+	public static final class Point
+	{
+		private long t;
+		private long v;
+
+		public Point()
+		{
+		}
+
+		public Point(long time, long value)
+		{
+			this.t = time;
+			this.v = value;
+		}
+
+		public long getTime()
+		{
+			return t;
+		}
+
+		public long getValue()
+		{
+			return v;
+		}
+	}
+
+	/** What the panel shows for a goal. */
+	public static final class View
+	{
+		private final Roadmap.Option option;
+		private final boolean owned;
+		private final long coins;
+		private final long worth;
+		private final boolean ledger;
+		private final Long perDay;
+
+		View(Roadmap.Option option, boolean owned, long coins, long worth, boolean ledger, Long perDay)
+		{
+			this.option = option;
+			this.owned = owned;
+			this.coins = coins;
+			this.worth = worth;
+			this.ledger = ledger;
+			this.perDay = perDay;
+		}
+
+		/** The upgrade as it stands against the aimed target now; its gain may be nothing here. */
+		public Roadmap.Option getOption()
+		{
+			return option;
+		}
+
+		/** The player already owns every piece: the goal is met. */
+		public boolean isOwned()
+		{
+			return owned;
+		}
+
+		public long getCost()
+		{
+			return option.getCost();
+		}
+
+		public long getCoins()
+		{
+			return coins;
+		}
+
+		public long getRemaining()
+		{
+			return Math.max(0, getCost() - coins);
+		}
+
+		/** Share of the price the player's coins already cover, 0 to 1. */
+		public double getProgress()
+		{
+			if (owned || getCost() <= 0)
+			{
+				return 1;
+			}
+			return Math.max(0, Math.min(1, coins / (double) getCost()));
+		}
+
+		public boolean isAffordable()
+		{
+			return owned || coins >= getCost();
+		}
+
+		/** Whether Codex Ledger's net worth was readable at all. */
+		public boolean hasLedger()
+		{
+			return ledger;
+		}
+
+		/** Net worth as Codex Ledger last saved it, 0 without it. */
+		public long getWorth()
+		{
+			return worth;
+		}
+
+		/** Net worth gained per day over the last week, or null when there is too little history to say. */
+		public Long getPerDay()
+		{
+			return perDay;
+		}
+
+		/** Whole days until the rest is saved at that pace, or -1 when it cannot be told (no pace, or not growing). */
+		public int getDays()
+		{
+			if (isAffordable())
+			{
+				return 0;
+			}
+			if (perDay == null || perDay <= 0)
+			{
+				return -1;
+			}
+			long days = (getRemaining() + perDay - 1) / perDay;
+			return days > MAX_DAYS ? -1 : (int) days;
+		}
+	}
+
+	private Savings()
+	{
+	}
+
+	/**
+	 * The goal's standing.
+	 *
+	 * @param option the goal priced and weighed against the aimed target
+	 * @param owned whether every piece is already owned
+	 * @param coins coins and platinum the player holds
+	 * @param worth Codex Ledger's saved net worth, or null when it is not installed or has not started
+	 * @param now the time now, to read the last week of history
+	 */
+	public static View of(Roadmap.Option option, boolean owned, long coins, Worth worth, long now)
+	{
+		if (option == null)
+		{
+			return null;
+		}
+		return new View(option, owned, Math.max(0, coins), worth == null ? 0 : worth.getTotal(), worth != null, pace(worth, now));
+	}
+
+	/**
+	 * Whether to say a goal is now in reach: only when the coins have just come to cover it,
+	 * never on the first look after login, and once per goal per login, so coins dipping into a
+	 * Grand Exchange offer and back, or a price wobbling across the line, do not say it again.
+	 *
+	 * @param wasAffordable whether the goal was affordable at the last look, or null before the first
+	 * @param announced whether it was announced already since the goal was set or the player logged in
+	 */
+	public static boolean inReach(Boolean wasAffordable, boolean announced, View view)
+	{
+		return view != null && !announced && Boolean.FALSE.equals(wasAffordable) && view.isAffordable() && !view.isOwned();
+	}
+
+	/**
+	 * Net worth gained per day across the last week: from the first reading inside the window
+	 * to the latest, so one lucky drop counts for what it was rather than for every day after.
+	 * Null with less than a day of history to go on.
+	 */
+	public static Long paceOf(Worth worth, long now)
+	{
+		return pace(worth, now);
+	}
+
+	static Long pace(Worth worth, long now)
+	{
+		if (worth == null)
+		{
+			return null;
+		}
+		List<Point> points = worth.getHistory();
+		Point first = null;
+		Point last = null;
+		for (Point p : points)
+		{
+			if (p == null || p.getTime() > now || now - p.getTime() > WINDOW_MS)
+			{
+				continue;
+			}
+			if (first == null || p.getTime() < first.getTime())
+			{
+				first = p;
+			}
+			if (last == null || p.getTime() > last.getTime())
+			{
+				last = p;
+			}
+		}
+		if (first == null || last.getTime() - first.getTime() < MIN_SPAN_MS)
+		{
+			return null;
+		}
+		double days = (last.getTime() - first.getTime()) / (double) DAY_MS;
+		return Math.round((last.getValue() - first.getValue()) / days);
+	}
+}

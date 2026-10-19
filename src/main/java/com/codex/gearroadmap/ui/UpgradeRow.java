@@ -2,6 +2,7 @@ package com.codex.gearroadmap.ui;
 
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.data.Target;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -9,6 +10,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.geom.Ellipse2D;
+import java.util.Locale;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -26,11 +28,15 @@ final class UpgradeRow
 		LEAP
 	}
 
+	/** The width the words of a row have beside its picture in the side panel. */
+	private static final int TEXT_W = 150;
+
 	private UpgradeRow()
 	{
 	}
 
-	static Card build(Roadmap.Option o, Mode mode, int rank, boolean affordable, Result.Kind before, ItemIcons icons, Runnable onClick)
+	static Card build(Roadmap.Option o, Mode mode, int rank, boolean affordable, Result.Kind before, ItemIcons icons, Target target,
+		Runnable onClick)
 	{
 		Card card = new Card(new BorderLayout(7, 0));
 		card.setBorder(new EmptyBorder(6, 8, 6, 8));
@@ -61,9 +67,12 @@ final class UpgradeRow
 		boolean priced = mode == Mode.STEP || mode == Mode.LEAP || mode == Mode.LOCKED && o.getCost() > 0;
 		JPanel text = new JPanel();
 		text.setOpaque(false);
+		// What the words beside the picture have at the panel's width; a step's medal takes some of it.
+		int room = mode == Mode.STEP ? TEXT_W - 22 : TEXT_W;
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
-		// The name gets the whole first line, with the price at its end, so it is rarely cut short.
+		// The name gets the whole first line and the price sits under it beside the damage, so even
+		// "Dragon hunter lance" or "Inquisitor's plateskirt" is read whole at the panel's width.
 		JPanel top = new JPanel(new BorderLayout(4, 0));
 		top.setOpaque(false);
 		// A pair bought together ("A + B") names the first on top and the second beneath it.
@@ -72,16 +81,14 @@ final class UpgradeRow
 		JLabel name = Ui.label(title, Theme.body(), mode == Mode.LOCKED ? Theme.TEXT_MUTED : Theme.TEXT);
 		name.setMinimumSize(new Dimension(10, 10));
 		name.setPreferredSize(new Dimension(10, name.getPreferredSize().height));
+		name.setToolTipText(o.getName());
 		top.add(name, BorderLayout.CENTER);
-		if (priced)
-		{
-			top.add(Ui.label(Format.coins(o.getCost()), Theme.body(), priceColor), BorderLayout.EAST);
-		}
 		top.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		text.add(top);
 		if (plus >= 0)
 		{
-			JLabel second = Ui.label("+ " + o.getName().substring(plus + 3), Theme.body(), name.getForeground());
+			// Wrapped rather than cut, so "+ Inquisitor's great hammer" is read whole.
+			JLabel second = Ui.wrapped("+ " + o.getName().substring(plus + 3), Theme.body(), name.getForeground(), room);
 			second.setToolTipText("Neither does anything alone: together they reach the next max hit");
 			second.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 			text.add(second);
@@ -91,6 +98,10 @@ final class UpgradeRow
 		JPanel middle = new JPanel(new BorderLayout(4, 0));
 		middle.setOpaque(false);
 		middle.add(Ui.label(Format.gain(o.getGain()) + " DPS  " + Format.share(o.getGainShare()), Theme.small(), gainColor), BorderLayout.WEST);
+		if (priced)
+		{
+			middle.add(Ui.label(Format.coins(o.getCost()), Theme.body(), priceColor), BorderLayout.EAST);
+		}
 		middle.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 		text.add(middle);
 
@@ -110,13 +121,16 @@ final class UpgradeRow
 				detail = o.isAmmo() ? "Price per 1,000" : Format.value(o.getCost(), o.getGain());
 				if (kind != null && before != null && kind != before)
 				{
-					detail = "To " + kind.toString().toLowerCase() + (detail.isEmpty() ? "" : " · " + detail);
+					detail = "To " + kind.toString().toLowerCase(Locale.ROOT) + (detail.isEmpty() ? "" : " · " + detail);
 					detailColor = Theme.mix(Theme.TEXT_MUTED, tint, 0.6);
 				}
 		}
 		if (detail != null && !detail.isEmpty())
 		{
-			JLabel sub = Ui.label(detail, Theme.small(), detailColor);
+			// How a free upgrade is earned, or what a locked one needs, can run long
+			// ("Dragon Slayer II and Vorkath's head"): it wraps instead of being cut.
+			boolean wrap = mode == Mode.FREE || mode == Mode.LOCKED;
+			JLabel sub = wrap ? Ui.wrapped(detail, Theme.small(), detailColor, room) : Ui.label(detail, Theme.small(), detailColor);
 			sub.setToolTipText(detail);
 			sub.setAlignmentX(JComponent.LEFT_ALIGNMENT);
 			text.add(sub);
@@ -139,7 +153,14 @@ final class UpgradeRow
 		tip.append("<br>").append(Format.dps(after.getDps())).append(" DPS after, max hit ").append(after.getMaxHit());
 		if (after.getStyle() != null)
 		{
-			tip.append(", ").append(Ui.escape(after.getStyle().toLowerCase()));
+			tip.append(", ").append(Ui.escape(after.getStyle().toLowerCase(Locale.ROOT)));
+		}
+		double was = o.getGain() > 0 && o.getAfter().dps() > o.getGain() ? target.getHp() / (o.getAfter().dps() - o.getGain()) : 0;
+		double now = after.secondsToKill(target);
+		if (was > 0 && !Double.isInfinite(now) && was - now >= 0.5)
+		{
+			tip.append("<br>Kill time ").append(Format.time(was)).append(" to ").append(Format.time(now))
+				.append(", ").append(Math.round((1 - now / was) * 100)).append("% faster");
 		}
 		if (onClick != null)
 		{

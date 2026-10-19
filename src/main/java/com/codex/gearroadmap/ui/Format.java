@@ -1,5 +1,7 @@
 package com.codex.gearroadmap.ui;
 
+import java.util.Locale;
+
 /** Coins, damage and times in the short forms the panel uses. */
 public final class Format
 {
@@ -7,46 +9,42 @@ public final class Format
 	{
 	}
 
-	/** "850", "60k", "1.4M", "1.6B"; "Free" for nothing at all. */
+	/**
+	 * "850", "8,240", "60k", "1.4M", "12.0M", "1.60B"; "Free" for nothing at all. One rule across the
+	 * Codex plugins: thousands whole, millions with one decimal and billions with two, zero or not,
+	 * so prices side by side read alike ("9.9M" beside "12.0M", never "12M").
+	 */
 	public static String coins(long gp)
 	{
 		if (gp <= 0)
 		{
 			return "Free";
 		}
-		if (gp < 1_000)
+		if (gp < 10_000)
 		{
-			return String.valueOf(gp);
+			return String.format(Locale.ENGLISH, "%,d", gp);
 		}
-		if (gp < 100_000)
-		{
-			return trim(gp / 1_000.0) + "k";
-		}
-		if (gp < 1_000_000)
+		// A figure that rounds up to a thousand of one unit is written in the next ("1.0M", not "1000k").
+		if (gp < 999_500)
 		{
 			return Math.round(gp / 1_000.0) + "k";
 		}
-		if (gp < 1_000_000_000)
+		if (gp < 999_950_000)
 		{
-			return trim(gp / 1_000_000.0) + "M";
+			return fixed(gp / 1_000_000.0, 1) + "M";
 		}
-		return trim(gp / 1_000_000_000.0) + "B";
+		return fixed(gp / 1_000_000_000.0, 2) + "B";
 	}
 
-	private static String trim(double value)
+	private static String fixed(double value, int places)
 	{
-		if (value >= 100)
-		{
-			return String.valueOf(Math.round(value));
-		}
-		String text = String.format("%.1f", value);
-		return text.endsWith(".0") ? text.substring(0, text.length() - 2) : text;
+		return String.format(Locale.ENGLISH, "%." + places + "f", value);
 	}
 
 	/** Damage per second to two places. */
 	public static String dps(double dps)
 	{
-		return String.format("%.2f", Math.max(0, dps));
+		return String.format(Locale.ENGLISH, "%.2f", Math.max(0, dps));
 	}
 
 	/** "+0.42", for a gain. */
@@ -94,6 +92,30 @@ public final class Format
 			return m + "m";
 		}
 		return m + "m " + r + "s";
+	}
+
+	/** "1h 18m", "34m": a longer stretch of time, to the minute. */
+	public static String span(double seconds)
+	{
+		long m = Math.round(Math.max(0, seconds) / 60);
+		return m >= 60 ? m / 60 + "h " + m % 60 + "m" : m + "m";
+	}
+
+	/** "+0.8%", "+12%": a share to one place below ten percent. */
+	public static String fine(double share)
+	{
+		double pct = Math.max(0, share) * 100;
+		return pct < 10 ? "+" + String.format(java.util.Locale.ENGLISH, "%.1f", pct) + "%" : "+" + Math.round(pct) + "%";
+	}
+
+	/** A slayer task's name with a capital first letter, as the game lists it: "Abyssal demons". */
+	public static String task(String task)
+	{
+		if (task == null || task.isEmpty())
+		{
+			return "";
+		}
+		return Character.toUpperCase(task.charAt(0)) + task.substring(1);
 	}
 
 	/** What each point of DPS costs on this upgrade: "85k per DPS". */

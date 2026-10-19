@@ -1,5 +1,6 @@
 package com.codex.gearroadmap.core;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -16,6 +17,16 @@ public final class Report
 	private boolean seasonal;
 	private String task;
 	private Boolean slayer;
+	private Savings.View savings;
+	private boolean following;
+	private String taskName;
+	private List<String> taskTargets = Collections.emptyList();
+	private Fights.Tally tally;
+	private List<Fights.Pick> fights = Collections.emptyList();
+	private List<Levels.Step> levels = Collections.emptyList();
+	private Swap swap;
+	private Outgrown outgrown;
+	private List<Claims.Claim> claims = Collections.emptyList();
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -36,7 +47,7 @@ public final class Report
 	/** As above, with whether the slayer helmet counts against the aimed target, or null when it is no slayer monster. */
 	public Report withAccount(boolean ironman, boolean seasonal, String task, Boolean slayer)
 	{
-		Report r = new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen);
+		Report r = copy(roadmap);
 		r.ironman = ironman;
 		r.seasonal = seasonal;
 		r.task = task;
@@ -47,7 +58,116 @@ public final class Report
 	/** A copy with another roadmap, such as the same road with the player's coins updated. */
 	public Report withRoadmap(Roadmap roadmap)
 	{
-		return new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen).withAccount(ironman, seasonal, task, slayer);
+		return copy(roadmap);
+	}
+
+	/**
+	 * A copy that knows which targets the slayer task covers, and whether the roadmap is aimed
+	 * at one of them because it follows the task rather than the chosen target.
+	 */
+	public Report withTask(boolean following, List<String> taskTargets, String taskName)
+	{
+		Report r = copy(roadmap);
+		r.following = following;
+		r.taskName = taskName;
+		r.taskTargets = taskTargets == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(taskTargets));
+		return r;
+	}
+
+	/**
+	 * A copy that knows where the player fights (from Codex Session Chronicle), the upgrades that save
+	 * the most time there, and the levels worth training for the aimed target.
+	 */
+	public Report withExtras(Fights.Tally tally, List<Fights.Pick> fights, List<Levels.Step> levels)
+	{
+		Report r = copy(roadmap);
+		r.tally = tally;
+		r.fights = fights == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(fights));
+		r.levels = levels == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(levels));
+		return r;
+	}
+
+	/** Kills by target over the last 30 days from Codex Session Chronicle, or null when it is not installed. */
+	public Fights.Tally getTally()
+	{
+		return tally;
+	}
+
+	/** Upgrades weighed across where the player fights, best value first. */
+	public List<Fights.Pick> getFights()
+	{
+		return fights;
+	}
+
+	/** The next level worth training in each skill behind the best loadout, best value first. */
+	public List<Levels.Step> getLevels()
+	{
+		return levels;
+	}
+
+	/** A copy that knows what is worn now against the best owned, or null before the gear has been read. */
+	public Report withSwap(Swap swap)
+	{
+		Report r = copy(roadmap);
+		r.swap = swap;
+		r.outgrown = outgrown;
+		return r;
+	}
+
+	/** A copy that knows the owned gear no best loadout wears, or null for an ironman. */
+	public Report withOutgrown(Outgrown outgrown)
+	{
+		Report r = copy(roadmap);
+		r.outgrown = outgrown;
+		return r;
+	}
+
+	/** Owned gear no best loadout wears against any target, or null. */
+	public Outgrown getOutgrown()
+	{
+		return outgrown;
+	}
+
+	/** What is worn now against the best loadout owned for the aimed target, or null. */
+	public Swap getSwap()
+	{
+		return swap;
+	}
+
+	/** A copy with the upgrades picked up from the road, newest first. */
+	public Report withClaims(List<Claims.Claim> claims)
+	{
+		Report r = copy(roadmap);
+		r.claims = claims == null ? Collections.emptyList() : claims;
+		return r;
+	}
+
+	/** A copy with the savings goal's standing, or none. */
+	public Report withSavings(Savings.View savings)
+	{
+		Report r = copy(roadmap);
+		r.savings = savings;
+		return r;
+	}
+
+	private Report copy(Roadmap roadmap)
+	{
+		Report r = new Report(loggedIn, roadmap, survey, boosts, owned, bankSeen);
+		r.ironman = ironman;
+		r.seasonal = seasonal;
+		r.task = task;
+		r.slayer = slayer;
+		r.savings = savings;
+		r.following = following;
+		r.taskName = taskName;
+		r.taskTargets = taskTargets;
+		r.tally = tally;
+		r.fights = fights;
+		r.levels = levels;
+		r.swap = swap;
+		r.outgrown = outgrown;
+		r.claims = claims;
+		return r;
 	}
 
 	public static Report loggedOut()
@@ -104,6 +224,36 @@ public final class Report
 	public String getTask()
 	{
 		return task;
+	}
+
+	/** The savings goal's standing, or null without a goal. */
+	public Savings.View getSavings()
+	{
+		return savings;
+	}
+
+	/** The upgrades picked up from the road, newest first; empty before the first. */
+	public List<Claims.Claim> getClaims()
+	{
+		return claims;
+	}
+
+	/** Whether the roadmap is aimed at the slayer task's monster rather than the chosen target. */
+	public boolean isFollowingTask()
+	{
+		return following;
+	}
+
+	/** The current slayer task's name as the game writes it, or null. */
+	public String getTaskName()
+	{
+		return taskName;
+	}
+
+	/** The targets the current slayer task covers, best first; empty without a task or when none are listed. */
+	public List<String> getTaskTargets()
+	{
+		return taskTargets;
 	}
 
 	/** Whether the bank has been read, so the owned list is complete. */

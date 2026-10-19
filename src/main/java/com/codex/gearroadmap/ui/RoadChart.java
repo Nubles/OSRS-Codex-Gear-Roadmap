@@ -31,7 +31,7 @@ public class RoadChart extends JComponent
 	private static final int HEIGHT = 160;
 	private static final int PAD_LEFT = 8;
 	private static final int PAD_RIGHT = 12;
-	private static final int PAD_TOP = 26;
+	private static final int PAD_TOP = 32;
 	private static final int PAD_BOTTOM = 22;
 	private static final int NODE = 20;
 
@@ -228,6 +228,11 @@ public class RoadChart extends JComponent
 		{
 			drawNode(g, xs[i + 1], ys[i + 1], i, path.get(i).isAffordable());
 		}
+		// Step numbers go on after every node, so a crowded stretch late on never hides one under its neighbour.
+		for (int i = 0; i < n; i++)
+		{
+			drawBadge(g, xs[i + 1], ys[i + 1], i, path.get(i).isAffordable());
+		}
 
 		g.setClip(null);
 		g.setFont(Theme.small());
@@ -237,10 +242,30 @@ public class RoadChart extends JComponent
 		{
 			ProgressRing.drawShadowed(g, Format.dps(now) + " now", PAD_LEFT + 2, h - 6, Theme.TEXT_MUTED);
 		}
-		String top = n == 0 ? "Nothing left to buy" : Format.dps(end) + " DPS  ·  " + Format.coins(total);
+		String title = "THE ROAD AHEAD";
+		int room = w - PAD_RIGHT - (PAD_LEFT + 2 + fm.stringWidth(title) + 8);
+		String top = n == 0 ? "Nothing left to buy" : top(Format.dps(end), Format.coins(total), fm, room);
 		ProgressRing.drawShadowed(g, top, w - PAD_RIGHT - fm.stringWidth(top), 15, n == 0 ? Theme.TEXT_MUTED : Theme.GOLD_BRIGHT);
-		ProgressRing.drawShadowed(g, "THE ROAD AHEAD", PAD_LEFT + 2, 15, Theme.GOLD);
+		ProgressRing.drawShadowed(g, title, PAD_LEFT + 2, 15, Theme.GOLD);
 		g.dispose();
+	}
+
+	/**
+	 * The figures beside the chart's title, "6.93 DPS  ·  156.3M", closed up and then without the
+	 * cost (which the list below adds up) when the room beside the title is short, so they never run
+	 * into it.
+	 */
+	static String top(String dps, String cost, FontMetrics fm, int room)
+	{
+		String[] tries = {dps + " DPS  ·  " + cost, dps + " DPS · " + cost, dps + " DPS"};
+		for (String t : tries)
+		{
+			if (fm.stringWidth(t) <= room)
+			{
+				return t;
+			}
+		}
+		return tries[tries.length - 1];
 	}
 
 	private void drawNode(Graphics2D g, double cx, double cy, int index, boolean affordable)
@@ -272,7 +297,12 @@ public class RoadChart extends JComponent
 			g.drawImage(image, (int) Math.round(cx - dw / 2.0), (int) Math.round(cy - dh / 2.0), dw, dh, null);
 			g.setComposite(old);
 		}
-		// The step number sits on the node's shoulder.
+	}
+
+	/** The step number on the node's shoulder. */
+	private void drawBadge(Graphics2D g, double cx, double cy, int index, boolean affordable)
+	{
+		float r = NODE / 2f;
 		g.setFont(Theme.small());
 		FontMetrics fm = g.getFontMetrics();
 		String label = String.valueOf(index + 1);

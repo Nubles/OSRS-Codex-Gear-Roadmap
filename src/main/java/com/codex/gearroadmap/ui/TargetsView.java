@@ -1,12 +1,15 @@
 package com.codex.gearroadmap.ui;
 
+import com.codex.gearroadmap.core.Fights;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.data.Target;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Consumer;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
@@ -23,12 +26,12 @@ final class TargetsView
 	{
 	}
 
-	static StackPanel build(Report report, int filter, String search, String focused, Consumer<String> onPick)
+	static StackPanel build(Report report, int filter, String search, String focused, Consumer<String> onPick, ItemIcons icons)
 	{
 		StackPanel stack = new StackPanel(4, 8);
 		if (!report.isLoggedIn())
 		{
-			stack.add(Rows.note("Log in to compare your gear against every target.", 190));
+			stack.add(Rows.empty("Over 70 targets wait", "Log in to see your damage and kill time against every boss, slayer monster and training spot."));
 			return stack;
 		}
 		if (report.getSurvey().isEmpty())
@@ -37,6 +40,28 @@ final class TargetsView
 			return stack;
 		}
 		String needle = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+		boolean fought = needle.isEmpty() && filter == 0 && fights(stack, report, icons);
+		List<String> task = report.getTaskTargets();
+		if (!task.isEmpty() && needle.isEmpty() && filter == 0)
+		{
+			// The task's monsters first, so aiming at what the task covers is one click away.
+			stack.add(new SectionHeader("Slayer task", report.getTaskName() == null ? null : Format.task(report.getTaskName())));
+			for (String name : task)
+			{
+				for (Roadmap.Survey row : report.getSurvey())
+				{
+					if (row.getTarget().getName().equals(name))
+					{
+						stack.add(row(row, name.equals(focused), onPick));
+					}
+				}
+			}
+			stack.add(new SectionHeader("All targets"));
+		}
+		else if (fought)
+		{
+			stack.add(new SectionHeader("All targets"));
+		}
 		int shown = 0;
 		for (Roadmap.Survey row : report.getSurvey())
 		{
@@ -53,6 +78,59 @@ final class TargetsView
 			stack.add(Rows.note("No targets match.", 190));
 		}
 		return stack;
+	}
+
+	/** Where the player really fights, from Session Chronicle, and the upgrades that save the most time there. */
+	static boolean fights(StackPanel stack, Report report, ItemIcons icons)
+	{
+		Fights.Tally tally = report.getTally();
+		if (tally == null || tally.isEmpty())
+		{
+			return false;
+		}
+		String span = tally.getDays() == 1 ? "the last day" : "the last " + tally.getDays() + " days";
+		stack.add(new SectionHeader("Where you fight", span.substring(4)));
+		StringBuilder line = new StringBuilder("Kills from Session Chronicle: ");
+		int shown = 0;
+		for (Map.Entry<Target, Integer> e : tally.getKills().entrySet())
+		{
+			if (shown == 3)
+			{
+				line.append(", and more");
+				break;
+			}
+			line.append(shown == 0 ? "" : ", ").append(e.getKey().getName()).append(' ')
+				.append(String.format(Locale.ENGLISH, "%,d", e.getValue()));
+			shown++;
+		}
+		JComponent note = Rows.note(line.append(". Most time saved for the coins first.").toString(), 190);
+		note.setToolTipText("<html>Each kill is weighed as it was fought: on a slayer task that covered it with the<br>"
+			+ "slayer helmet's bonus, off one without. Kills logged before Chronicle kept the task<br>"
+			+ "count Slayer creatures as on task and bosses as off.</html>");
+		stack.add(note);
+		List<Fights.Pick> picks = report.getFights();
+		if (picks.isEmpty())
+		{
+			stack.add(Rows.note(report.isIronman() ? "Ironmen are shown the roadmap for each target instead."
+				: "Nothing you could buy now would have saved you much time there.", 190));
+			return true;
+		}
+		for (Fights.Pick p : picks)
+		{
+			JLabel cost = Ui.label(Format.coins(p.getCost()), Theme.small(), Theme.GOLD);
+			Card row = Rows.line(new IconBadge(p.getIcon().getId(), icons, true), p.getName(),
+				"Saves " + Format.span(p.getSeconds()) + " of fighting", cost, null);
+			StringBuilder tip = new StringBuilder("<html><b>").append(Ui.escape(p.getName())).append("</b><br>About ")
+				.append(Format.span(p.getSeconds())).append(" less fighting over ").append(span).append(", mostly at ");
+			List<String> where = p.getWhere();
+			for (int i = 0; i < where.size() && i < 3; i++)
+			{
+				tip.append(i == 0 ? "" : i == where.size() - 1 || i == 2 ? " and " : ", ").append(Ui.escape(where.get(i)));
+			}
+			row.setToolTipText(tip.append(".</html>").toString());
+			stack.add(row);
+		}
+		return true;
 	}
 
 	private static boolean matches(Target t, int filter)

@@ -7,6 +7,7 @@ import java.awt.CardLayout;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.util.function.Consumer;
+import java.awt.image.BufferedImage;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -26,6 +27,7 @@ public class GearRoadmapPanel extends PluginPanel
 
 	private final ItemIcons icons;
 	private final Consumer<String> onAim;
+	private final Consumer<Roadmap.Option> onGoal;
 	private final Crest crest = new Crest();
 	private final Segmented tabs = new Segmented(true, "Roadmap", "Loadout", "Targets");
 	private final Segmented kinds = new Segmented(false, LoadoutView.KINDS);
@@ -39,14 +41,30 @@ public class GearRoadmapPanel extends PluginPanel
 
 	private Report report = Report.loggedOut();
 	private String playerName;
+	/** Whether the road card carries the character's name, from the settings. */
+	private boolean showName = true;
+	private boolean showWorth;
 	private String search = "";
 	private Roadmap.Option preview;
+	/** The listed monster being fought, and the one the player hid the offer for. */
+	private String fighting;
+	private String hiddenFight;
+	private ShareActions share;
+	/** A line under the road card's buttons, such as where it was saved. */
+	private String shareNote;
+	/** Set when a report arrived while the panel was closed; it is drawn once the panel opens. */
+	private boolean stale;
 
-	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim)
+	/**
+	 * @param onAim called with a target's name when the player picks it
+	 * @param onGoal called with an upgrade to save for, or null to clear the goal
+	 */
+	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim, Consumer<Roadmap.Option> onGoal)
 	{
 		super(false);
 		this.icons = icons;
 		this.onAim = onAim;
+		this.onGoal = onGoal;
 		setLayout(new BorderLayout());
 		setBackground(Theme.INK);
 
@@ -117,10 +135,76 @@ public class GearRoadmapPanel extends PluginPanel
 	/** Called on the Swing thread with each new report. */
 	public void update(Report report, String playerName)
 	{
+		if (!java.util.Objects.equals(aimed(this.report), aimed(report)))
+		{
+			// A note on a card saved for another target no longer applies.
+			shareNote = null;
+		}
 		this.report = report;
 		this.playerName = playerName;
 		preview = null;
+		if (!isShowing())
+		{
+			// Nothing is built while the panel is closed; it catches up when it opens.
+			stale = true;
+			return;
+		}
 		rebuild();
+	}
+
+	@Override
+	public void onActivate()
+	{
+		if (stale)
+		{
+			rebuild();
+		}
+	}
+
+	private static String aimed(Report report)
+	{
+		return report == null || report.getRoadmap() == null ? null : report.getRoadmap().getTarget().getName();
+	}
+
+	/** Whether the road card shows the player's coins and how far they go; used when the card is next drawn. */
+	public void setShowWorth(boolean showWorth)
+	{
+		this.showWorth = showWorth;
+	}
+
+	/** Whether the road card carries the character's name; used when the card is next drawn. */
+	public void setShowName(boolean showName)
+	{
+		this.showName = showName;
+	}
+
+	/** What the road card's buttons do. */
+	public void setShare(ShareActions share)
+	{
+		this.share = share;
+	}
+
+	/** A line under the road card's buttons; the Roadmap tab is built again to show it. */
+	public void shareNote(String note)
+	{
+		shareNote = note;
+		rebuildRoadmap();
+	}
+
+	/** Called on the Swing thread with the listed monster the player is fighting, or null. */
+	public void setFighting(String fighting)
+	{
+		if (java.util.Objects.equals(this.fighting, fighting))
+		{
+			return;
+		}
+		this.fighting = fighting;
+		if (!isShowing())
+		{
+			stale = true;
+			return;
+		}
+		rebuildRoadmap();
 	}
 
 	/** Opens one tab, for previews and tests. */
@@ -154,10 +238,57 @@ public class GearRoadmapPanel extends PluginPanel
 
 	private void rebuild()
 	{
+		stale = false;
 		crest.update(report, playerName);
-		replace(roadmap, RoadmapView.build(report, icons, () -> showTab(2), this::preview));
+		rebuildRoadmap();
 		rebuildLoadout();
 		rebuildTargets();
+	}
+
+	private void rebuildRoadmap()
+	{
+		String fight = fighting == null || fighting.equals(hiddenFight) ? null : fighting;
+		StackPanel view = RoadmapView.build(report, icons, () -> showTab(2), this::preview, () -> onGoal.accept(null),
+			RoadmapView.fightCard(report, fight, () -> onAim.accept(fight), () ->
+			{
+				hiddenFight = fight;
+				rebuildRoadmap();
+			}));
+		if (share != null && RoadCard.canDraw(report))
+		{
+			RoadmapView.shareCard(view, shareNote, this::saveCard, this::copyCard);
+		}
+		replace(roadmap, view);
+	}
+
+	/**
+	 * The road card is drawn only when asked for, never as the road changes, and handed over once
+	 * the pictures of its loadout and stops are in, so no stop is saved as an empty ring.
+	 */
+	private void drawCard(java.util.function.Consumer<BufferedImage> deliver)
+	{
+		Report drawn = report;
+		String name = showName ? playerName : null;
+		boolean worth = showWorth;
+		long now = System.currentTimeMillis();
+		CardPictures.draw(icons, pictures -> RoadCard.render(drawn, name, pictures, now, null, worth), deliver);
+	}
+
+	private void saveCard()
+	{
+		if (RoadCard.canDraw(report))
+		{
+			String file = "Road to " + report.getRoadmap().getTarget().getName().replaceAll("[\\\\/:*?\"<>|]", "") + ".png";
+			drawCard(card -> share.save(card, file));
+		}
+	}
+
+	private void copyCard()
+	{
+		if (RoadCard.canDraw(report))
+		{
+			drawCard(share::copy);
+		}
 	}
 
 	private void rebuildLoadout()
@@ -165,6 +296,12 @@ public class GearRoadmapPanel extends PluginPanel
 		kindHolder.setVisible(preview == null);
 		replace(loadout, LoadoutView.build(report, kinds.getSelected(), preview, icons, () ->
 		{
+			preview = null;
+			rebuildLoadout();
+			showTab(0);
+		}, option ->
+		{
+			onGoal.accept(option);
 			preview = null;
 			rebuildLoadout();
 			showTab(0);
@@ -178,7 +315,7 @@ public class GearRoadmapPanel extends PluginPanel
 		{
 			showTab(0);
 			onAim.accept(name);
-		}));
+		}, icons));
 	}
 
 	private static void replace(JScrollPane scroll, JComponent view)

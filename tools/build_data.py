@@ -257,6 +257,12 @@ ONLY = {
     "The Leviathan": ["ranged", "magic"],
 }
 
+# Percent of the fight an attack kind can keep hitting. Vorkath's acid phase and fire bombs keep a
+# melee player walking, while ranged and magic attack through them (a judgement, stated in the README).
+UPTIME = {
+    "Vorkath": {"melee": 80},
+}
+
 # Defence levels that change during the fight, given as the middle of their range.
 # Vardorvis's defence falls from 215 to 145 as he loses health.
 DEFENCE = {"Vardorvis": 180}
@@ -500,6 +506,8 @@ def main():
             targets[-1]["wild"] = True
         if (label or name) in ONLY:
             targets[-1]["only"] = ONLY[label or name]
+        if (label or name) in UPTIME:
+            targets[-1]["up"] = UPTIME[label or name]
 
     ammo_lists = [None] * len(ammo_sets)
     for key, i in ammo_sets.items():

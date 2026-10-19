@@ -2,15 +2,22 @@ package com.codex.gearroadmap.ui;
 
 import com.codex.gearroadmap.core.Loadout;
 import com.codex.gearroadmap.core.Planner;
+import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.Savings;
+import com.codex.gearroadmap.core.Swap;
 import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
+import java.util.function.Consumer;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
@@ -23,13 +30,15 @@ final class LoadoutView
 	{
 	}
 
-	static StackPanel build(Report report, int kindIndex, Roadmap.Option preview, ItemIcons icons, Runnable clearPreview)
+	static StackPanel build(Report report, int kindIndex, Roadmap.Option preview, ItemIcons icons, Runnable clearPreview,
+		Consumer<Roadmap.Option> saveFor)
 	{
 		StackPanel stack = new StackPanel(6, 8);
 		Roadmap map = report.getRoadmap();
 		if (!report.isLoggedIn() || map == null)
 		{
-			stack.add(Rows.note(report.isLoggedIn() ? "Reading your gear..." : "Log in to see your best loadouts.", 190));
+			stack.add(report.isLoggedIn() ? Rows.note("Reading your gear...", 190)
+				: Rows.empty("No gear to read yet", "Log in to see your best melee, ranged and magic loadouts from what you own."));
 			return stack;
 		}
 		Planner.Plan plan;
@@ -43,7 +52,11 @@ final class LoadoutView
 			banner.setBorder(new EmptyBorder(6, 10, 6, 10));
 			JPanel text = new JPanel(new BorderLayout());
 			text.setOpaque(false);
-			text.add(Ui.label("With " + preview.getName(), Theme.body(), Theme.TEXT), BorderLayout.NORTH);
+			JLabel with = Ui.label("With " + preview.getName(), Theme.body(), Theme.TEXT);
+			with.setToolTipText(preview.getName());
+			with.setMinimumSize(new Dimension(10, 10));
+			with.setPreferredSize(new Dimension(10, with.getPreferredSize().height));
+			text.add(with, BorderLayout.NORTH);
 			text.add(Ui.label("New pieces glow teal", Theme.small(), Theme.TEAL), BorderLayout.SOUTH);
 			banner.add(text, BorderLayout.CENTER);
 			JPanel trail = new JPanel(new BorderLayout());
@@ -51,6 +64,26 @@ final class LoadoutView
 			trail.add(new CodexButton("Back", false, clearPreview), BorderLayout.NORTH);
 			banner.add(trail, BorderLayout.EAST);
 			stack.add(banner);
+			// Anything bought can be saved for; ironmen cannot buy, and earned upgrades cost nothing.
+			if (!report.isIronman() && preview.getCost() > 0)
+			{
+				Savings.View savings = report.getSavings();
+				boolean already = savings != null && savings.getOption().getName().equals(preview.getName());
+				JPanel save = new JPanel(new BorderLayout(8, 0));
+				save.setOpaque(false);
+				save.setBorder(new EmptyBorder(0, 2, 0, 0));
+				String line = already ? "This is your savings goal." : savings != null
+					? "Replaces " + savings.getOption().getName() + " as your goal." : "Track your coins toward it on the Roadmap.";
+				save.add(Ui.wrapped(line, Theme.small(), already ? Theme.GOLD : Theme.TEXT_MUTED, 110), BorderLayout.CENTER);
+				if (!already)
+				{
+					JPanel holder = new JPanel(new BorderLayout());
+					holder.setOpaque(false);
+					holder.add(new CodexButton("Save for it", true, () -> saveFor.accept(preview)), BorderLayout.NORTH);
+					save.add(holder, BorderLayout.EAST);
+				}
+				stack.add(save);
+			}
 		}
 		else if (kindIndex == 0)
 		{
@@ -66,7 +99,7 @@ final class LoadoutView
 			Result.Kind wanted = kindIndex == 0 ? null : Result.Kind.values()[kindIndex - 1];
 			String name = map.getTarget().getName();
 			stack.add(Rows.note(wanted != null && !map.getTarget().allows(wanted.name())
-				? name + " can't be hurt with " + wanted.toString().toLowerCase() + "."
+				? name + " can't be hurt with " + wanted.toString().toLowerCase(Locale.ROOT) + "."
 				: "You own nothing that can attack " + name + " this way.", 190));
 			return stack;
 		}
@@ -90,11 +123,47 @@ final class LoadoutView
 		stack.add(Rows.check(Mark.Kind.NOTE, styleLine(r), r.getPrayer() == null ? "No prayer" : r.getPrayer(), null));
 		stack.add(Rows.check(Mark.Kind.NOTE, report.getBoosts() == null ? "No boosts" : report.getBoosts(),
 			pieces(plan.getLoadout()) + " pieces worn", null));
+		int uptime = map.getTarget().uptime(r.getKind().name());
+		if (uptime < 100)
+		{
+			stack.add(Rows.check(Mark.Kind.NOTE, r.getKind() + " counted at " + uptime + "%",
+				map.getTarget().getName() + "'s phases keep you off", null));
+		}
 		Boolean slayer = report.getSlayer();
 		if (slayer != null)
 		{
 			stack.add(Rows.check(slayer ? Mark.Kind.GOOD : Mark.Kind.NOTE, slayer ? "On task" : "Off task",
 				slayer ? "Slayer helmet bonus counts" : "No slayer helmet bonus", null));
+		}
+		if (preview == null && kindIndex == 0)
+		{
+			wearing(stack, report.getSwap(), map.getTarget().getName(), icons);
+		}
+		if (preview == null && kindIndex == 0 && !report.getLevels().isEmpty())
+		{
+			// Training is an upgrade too: the next level in each skill that adds damage, in the same gear.
+			stack.add(new SectionHeader("Levels that pay", "same gear"));
+			boolean priced = false;
+			for (Levels.Step step : report.getLevels())
+			{
+				// Short enough for the sidebar beside the price; a long prayer name ("Incredible Reflexes and ...") is left to the tooltip.
+				String prayer = step.getPrayer() == null ? null : step.getPrayer().length() <= 13 ? step.getPrayer() : "Prayer";
+				String what = (prayer != null ? prayer : step.isNewMaxHit() ? "Max hit " + step.getMaxHit() : "Accuracy")
+					+ ", " + Format.fine(step.getShare()) + " DPS";
+				boolean worth = step.getWorth() > 0 && !report.isIronman();
+				priced |= worth;
+				Card row = Rows.line(new Mark(Mark.Kind.GOOD, 14), step.getSkill() + " " + step.getTo(), what,
+					worth ? Ui.label(Format.coins(step.getWorth()), Theme.small(), Theme.GOLD) : null, null);
+				row.setToolTipText("<html>" + step.getSkill() + " " + step.getFrom() + " to " + step.getTo() + " adds "
+					+ Format.gain(step.getGain()) + " DPS against " + Ui.escape(map.getTarget().getName()) + " in this loadout"
+					+ (step.getPrayer() != null ? ", as it unlocks " + step.getPrayer() : step.isNewMaxHit() ? "" : ", as more hits land") + "."
+					+ (worth ? "<br>The road ahead pays about that much for the same damage." : "") + "</html>");
+				stack.add(row);
+			}
+			if (priced)
+			{
+				stack.add(Rows.note("Beside each, what the road ahead would charge in gear for the same damage.", 190));
+			}
 		}
 		if (preview == null)
 		{
@@ -103,11 +172,43 @@ final class LoadoutView
 		return stack;
 	}
 
+	/** What is worn now against this loadout: the pieces to put on, or a word that it is already worn. */
+	static void wearing(StackPanel stack, Swap swap, String target, ItemIcons icons)
+	{
+		if (swap == null || swap.getBestDps() <= 0)
+		{
+			return;
+		}
+		if (swap.isBest())
+		{
+			stack.add(Rows.check(Mark.Kind.GOOD, "You're wearing it", "Your best for " + target, null));
+			return;
+		}
+		if (swap.getChanges().isEmpty())
+		{
+			return;
+		}
+		stack.add(new SectionHeader("Put on", Format.gain(swap.gain()) + " DPS"));
+		for (Swap.Change c : swap.getChanges())
+		{
+			Gear off = c.getOff();
+			String where = c.getWhere() == Swap.Where.INVENTORY ? "In your inventory" : "In your bank";
+			Card row = Rows.line(new IconBadge(c.getWear().getId(), icons, true), c.getWear().getName(),
+				off == null ? where : where + ", for " + off.getName(), null, null);
+			row.setToolTipText("<html>" + Ui.escape(c.getWear().getName()) + " in your " + Gear.SLOT_NAMES[c.getWear().getSlot()].toLowerCase(Locale.ROOT)
+				+ " slot" + (off == null ? "" : " instead of " + Ui.escape(off.getName())) + "</html>");
+			stack.add(row);
+		}
+		String now = swap.getWornKind() == null ? "What you're wearing can't hurt " + target + "."
+			: "You're wearing " + Format.dps(swap.getWornDps()) + " DPS of " + swap.getWornKind().toString().toLowerCase(Locale.ROOT) + " against " + target + ".";
+		stack.add(Rows.note(now + " The loadout above does " + Format.dps(swap.getBestDps()) + ".", 190));
+	}
+
 	private static String styleLine(Result r)
 	{
 		if (r.getSpell() != null)
 		{
-			return r.getSpell() + ", " + r.getStyle().toLowerCase();
+			return r.getSpell() + ", " + r.getStyle().toLowerCase(Locale.ROOT);
 		}
 		return r.getStyle();
 	}

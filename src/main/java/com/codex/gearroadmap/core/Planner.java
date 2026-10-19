@@ -97,6 +97,23 @@ public final class Planner
 		{
 			return best.dps();
 		}
+
+		/**
+		 * These plans with one swapped in where it beats the plan of its kind. The road keeps a quick
+		 * search's find when the fresh search falls short of it, so the next step builds on that.
+		 */
+		Best keeping(Plan plan)
+		{
+			Result.Kind kind = plan.getResult().getKind();
+			Plan held = kind == null ? null : plans.get(kind);
+			if (held == null || plan.dps() <= held.dps() + 1e-9)
+			{
+				return this;
+			}
+			Map<Result.Kind, Plan> merged = new EnumMap<>(plans);
+			merged.put(kind, plan);
+			return new Best(merged);
+		}
 	}
 
 	private final RoadmapData data;

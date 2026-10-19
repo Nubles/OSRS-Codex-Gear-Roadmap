@@ -24,7 +24,7 @@ public class Crest extends JPanel
 {
 	private final DpsDial dial = new DpsDial(74);
 	private final JLabel title = Ui.label("Gear Roadmap", Theme.title(), Theme.GOLD_BRIGHT);
-	private final JLabel target = Ui.label("Log in to plan your gear", Theme.small(), Theme.TEXT_MUTED);
+	private final JLabel target = Ui.label("Log in to plan", Theme.small(), Theme.TEXT_MUTED);
 	private final Ledger kill = new Ledger("Kill time");
 	private final Ledger road = new Ledger("Road ahead");
 	private final Ledger coins = new Ledger("Coins");
@@ -66,7 +66,7 @@ public class Crest extends JPanel
 		if (!report.isLoggedIn() || map == null)
 		{
 			title.setText(playerName == null ? "Gear Roadmap" : playerName);
-			target.setText(report.isLoggedIn() ? "Reading your gear..." : "Log in to plan your gear");
+			target.setText(report.isLoggedIn() ? "Reading your gear..." : "Log in to plan");
 			target.setForeground(Theme.TEXT_MUTED);
 			dial.set("-", 0, 0, Theme.GOLD, true);
 			kill.set("-", Theme.TEXT);

@@ -137,11 +137,19 @@ public final class Roadmap
 	{
 		private final Target target;
 		private final Planner.Plan plan;
+		private final Planner.Best best;
 
-		Survey(Target target, Planner.Plan plan)
+		Survey(Target target, Planner.Best best)
 		{
 			this.target = target;
-			this.plan = plan;
+			this.plan = best.best();
+			this.best = best;
+		}
+
+		/** The best plan for each kind of attack, not only the best of them. */
+		public Planner.Best getBest()
+		{
+			return best;
 		}
 
 		public Target getTarget()
@@ -162,6 +170,8 @@ public final class Roadmap
 	private final List<Option> locked;
 	private final List<Option> leaps;
 	private final long coins;
+	private Option goal;
+	private boolean goalOwned;
 
 	Roadmap(Target target, Planner.Best now, List<Step> path, List<Option> free, List<Option> locked, List<Option> leaps, long coins)
 	{
@@ -188,7 +198,27 @@ public final class Roadmap
 			steps.add(new Step(s.option, s.spent, s.spent <= coins));
 		}
 		List<Option> bought = new ArrayList<>(leaps);
-		return new Roadmap(target, now, steps, free, locked, bought, coins);
+		return new Roadmap(target, now, steps, free, locked, bought, coins).withGoal(goal, goalOwned);
+	}
+
+	/** The same road with the player's savings goal, as weighed against this target. */
+	Roadmap withGoal(Option goal, boolean owned)
+	{
+		this.goal = goal;
+		this.goalOwned = owned;
+		return this;
+	}
+
+	/** The savings goal priced against this target, or null without one (or while it has no price). */
+	public Option getGoal()
+	{
+		return goal;
+	}
+
+	/** Whether every piece of the savings goal is owned already. */
+	public boolean isGoalOwned()
+	{
+		return goalOwned;
 	}
 
 	public Planner.Best getNow()

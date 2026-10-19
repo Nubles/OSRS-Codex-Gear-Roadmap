@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,12 @@ public final class Advisor
 	/** The roadmap for one target. */
 	public Roadmap plan(Collection<Gear> ownedGear, Fighter fighter, Target target, Prices prices, long coins)
 	{
+		return plan(ownedGear, fighter, target, prices, coins, null);
+	}
+
+	/** The roadmap for one target, with the player's savings goal priced and weighed against it. */
+	public Roadmap plan(Collection<Gear> ownedGear, Fighter fighter, Target target, Prices prices, long coins, Savings.Goal goal)
+	{
 		Set<Gear> owned = new LinkedHashSet<>(ownedGear);
 		Planner.Best start = planner.optimise(owned, fighter, target);
 		double base = start.dps();
@@ -138,7 +145,70 @@ public final class Advisor
 				leaps.add(o);
 			}
 		}
-		return new Roadmap(target, start, path, cut(free, SIDE_LIST + 2), cut(locked, SIDE_LIST), leaps, coins);
+		Roadmap map = new Roadmap(target, start, path, cut(free, SIDE_LIST + 2), cut(locked, SIDE_LIST), leaps, coins);
+		return goal == null ? map : map.withGoal(goal(owned, fighter, target, prices, start, goal), owns(owned, goal));
+	}
+
+	/**
+	 * A savings goal as it stands against this target: what is still to buy and the damage it
+	 * adds to the loadout owned now, which may be nothing here. Null when a piece is unknown or
+	 * has no price at the moment.
+	 */
+	Roadmap.Option goal(Set<Gear> owned, Fighter fighter, Target target, Prices prices, Planner.Best start, Savings.Goal goal)
+	{
+		if (goal == null || !goal.isValid())
+		{
+			return null;
+		}
+		List<Gear> pieces = new ArrayList<>();
+		Map<String, Integer> req = new HashMap<>();
+		String note = null;
+		for (int id : goal.getIds())
+		{
+			Gear g = data.gear(id);
+			if (g == null)
+			{
+				return null;
+			}
+			if (!pieces.contains(g))
+			{
+				pieces.add(g);
+			}
+			CatalogueEntry entry = data.entry(g);
+			if (entry != null)
+			{
+				entry.getRequirements().forEach((k, v) -> req.merge(k, v, Math::max));
+				note = pieces.size() == 1 ? entry.getNote() : null;
+			}
+		}
+		Candidate c = new Candidate(goal.getName(), pieces, req, null, note, pieces.size() == 1 && pieces.get(0).getSlot() == Gear.AMMO);
+		long cost = cost(c, owned, prices);
+		if (cost < 0)
+		{
+			return null;
+		}
+		Planner.Plan after = planner.withAdded(start, owned, pieces, fighter, target);
+		double gain = Math.max(0, after.dps() - start.dps());
+		return new Roadmap.Option(c.name, pieces, c.icon(), cost, gain, start.dps(), gain > 0 ? after : start.best(),
+			fighter.missing(req), null, note, c.ammo);
+	}
+
+	/** Whether every piece of a goal is owned already, any variant of it counting. */
+	boolean owns(Set<Gear> owned, Savings.Goal goal)
+	{
+		if (goal == null || !goal.isValid())
+		{
+			return false;
+		}
+		for (int id : goal.getIds())
+		{
+			Gear g = data.gear(id);
+			if (g == null || !owned.contains(g))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Greedy road: the best damage per coin, then again from the gear that leaves. */
@@ -234,7 +304,8 @@ public final class Advisor
 			Roadmap.Option option = new Roadmap.Option(pick.name, pick.pieces, pick.icon(), pickCost, plan.dps() - base, base, plan,
 				null, null, pick.note, pick.ammo);
 			path.add(new Roadmap.Step(option, spent, spent <= coins));
-			current = next;
+			// Build the next step on the loadout this one showed, or its gain is counted twice.
+			current = next.keeping(plan);
 		}
 		return path;
 	}
@@ -264,6 +335,125 @@ public final class Advisor
 		return ids;
 	}
 
+	/**
+	 * Upgrades weighed across where the player really fights: the fighting time each would have saved
+	 * over the tally's days, at the targets that took the most of it. Ranked by time saved per coin,
+	 * like the road; only upgrades the player can wear now and can buy are weighed.
+	 */
+	public List<Fights.Pick> fights(Collection<Gear> ownedGear, Fighter fighter, Fights.Tally tally, Prices prices)
+	{
+		if (tally == null || tally.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+		Set<Gear> owned = new LinkedHashSet<>(ownedGear);
+		List<Start> starts = new ArrayList<>();
+		int targets = 0;
+		for (Map.Entry<Target, Integer> e : tally.getKills().entrySet())
+		{
+			if (targets >= Fights.TARGETS)
+			{
+				break;
+			}
+			targets++;
+			Target t = e.getKey();
+			int all = e.getValue();
+			// Each kill is weighed as it was fought: on a task with the slayer helmet's bonus, off one without.
+			int helmet = helmetKills(fighter.getTask(), tally, t, all);
+			addStart(starts, owned, fighter.withTask(SlayerTask.ALWAYS), t, helmet);
+			addStart(starts, owned, fighter.withTask(SlayerTask.NEVER), t, all - helmet);
+		}
+		List<Fights.Pick> picks = new ArrayList<>();
+		Map<Fights.Pick, Double> value = new HashMap<>();
+		for (Candidate c : candidates(owned))
+		{
+			if (c.earn != null || fighter.missing(c.requirements) != null)
+			{
+				continue;
+			}
+			long cost = cost(c, owned, prices);
+			if (cost <= 0)
+			{
+				continue;
+			}
+			double total = 0;
+			Map<String, Double> where = new HashMap<>();
+			for (Start start : starts)
+			{
+				Target t = start.target;
+				Planner.Plan after = planner.withAdded(start.best, owned, c.pieces, start.fighter, t);
+				if (after.dps() <= start.best.dps() + 1e-9)
+				{
+					continue;
+				}
+				double saved = Fights.seconds(start.kills, t, start.best.dps()) - Fights.seconds(start.kills, t, after.dps());
+				total += saved;
+				where.merge(t.getName(), saved, Double::sum);
+			}
+			if (total < Fights.MIN_SECONDS * tally.getDays() / Fights.DAYS)
+			{
+				continue;
+			}
+			List<String> names = new ArrayList<>(where.keySet());
+			names.sort(Comparator.comparingDouble((String n) -> -where.get(n)));
+			Fights.Pick pick = new Fights.Pick(c.name, c.icon(), cost, total, names);
+			picks.add(pick);
+			value.put(pick, total / cost);
+		}
+		picks.sort(Comparator.comparingDouble((Fights.Pick p) -> -value.get(p)));
+		return cut(picks, Fights.PICKS);
+	}
+
+	/**
+	 * How many of a target's kills to weigh with the slayer helmet's bonus. With the setting on
+	 * always or never, all or none. With it following the task, the kills Chronicle saw made on a
+	 * task that covers the target, plus, for kills from before it kept the task, those a Slayer
+	 * creature (but not a boss) would most likely have been: today's task says nothing of them.
+	 */
+	static int helmetKills(SlayerTask setting, Fights.Tally tally, Target t, int all)
+	{
+		if (setting.getMode() != SlayerTask.Mode.SMART)
+		{
+			return setting.covers(t) ? all : 0;
+		}
+		if (!t.isSlayer())
+		{
+			return 0;
+		}
+		int unknown = SlayerTask.of(SlayerTask.Mode.SMART, null).covers(t) ? tally.unknown(t) : 0;
+		return Math.min(all, tally.onTask(t) + unknown);
+	}
+
+	private void addStart(List<Start> starts, Set<Gear> owned, Fighter fighter, Target t, int kills)
+	{
+		if (kills <= 0)
+		{
+			return;
+		}
+		Planner.Best best = planner.optimise(owned, fighter, t);
+		if (best.dps() > 0)
+		{
+			starts.add(new Start(t, fighter, best, kills));
+		}
+	}
+
+	/** Where a fought target's kills start from, for one slayer helmet assumption. */
+	private static final class Start
+	{
+		final Target target;
+		final Fighter fighter;
+		final Planner.Best best;
+		final int kills;
+
+		Start(Target target, Fighter fighter, Planner.Best best, int kills)
+		{
+			this.target = target;
+			this.fighter = fighter;
+			this.best = best;
+			this.kills = kills;
+		}
+	}
+
 	/** Every target's best loadout, for the Targets tab. */
 	public List<Roadmap.Survey> survey(Collection<Gear> owned, Fighter fighter)
 	{
@@ -271,7 +461,7 @@ public final class Advisor
 		for (Target t : data.targets())
 		{
 			Planner.Best best = planner.optimise(owned, fighter, t);
-			rows.add(new Roadmap.Survey(t, best.best()));
+			rows.add(new Roadmap.Survey(t, best));
 		}
 		return rows;
 	}

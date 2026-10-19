@@ -75,6 +75,20 @@ public final class Fighter
 		return f;
 	}
 
+	/** The same fighter with another slayer helmet assumption, to weigh kills made on and off a task apart. */
+	public Fighter withTask(SlayerTask other)
+	{
+		return new Fighter(levels, boost, prayers, piety, rigour, augury, ancients, other).withUnlocks(deadeye, vigour, kandarinHard);
+	}
+
+	/** The same fighter with one skill at another level, to weigh what training it is worth. */
+	public Fighter withLevel(String skill, int level)
+	{
+		Map<String, Integer> raised = new HashMap<>(levels);
+		raised.put(skill, level);
+		return new Fighter(raised, boost, prayers, piety, rigour, augury, ancients, task).withUnlocks(deadeye, vigour, kandarinHard);
+	}
+
 	/** A maxed account with every unlock, used for previews and tests. */
 	public static Fighter maxed(Boost boost)
 	{
