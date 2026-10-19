@@ -3,6 +3,7 @@ package com.codex.gearroadmap;
 import com.codex.gearroadmap.core.Claims;
 import com.codex.gearroadmap.core.Fights;
 import com.codex.gearroadmap.core.Holdings;
+import com.codex.gearroadmap.core.Saved;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.google.gson.Gson;
@@ -258,6 +259,37 @@ public class DamagedSavesTest
 			int n = vorkaths(Fights.read(GSON, j.toString(), true));
 			assertTrue(line + " gave " + n, n >= 20 && n <= 20 + 2 * Fights.MAX_KILLS);
 		}
+	}
+
+	@Test
+	public void whateverIsLeftOutIsSetAsideBeforeItIsWrittenOver()
+	{
+		Claims claims = new Claims();
+		claims.add(new Claims.Claim("Abyssal whip", 4151, 0.42, "Vorkath", NOW - DAY));
+		claims.add(new Claims.Claim("Dragon defender", 12954, 0.21, "Vorkath", NOW));
+		String whole = GSON.toJson(claims);
+		String goal = GSON.toJson(new Savings.Goal("Twisted bow", Collections.singletonList(20997)));
+		// What this version writes reads whole: nothing to set aside.
+		assertTrue(!Saved.lost(GSON, whole, Claims.read(GSON, whole)));
+		assertTrue(!Saved.lost(GSON, goal, Savings.readGoal(GSON, goal)));
+		assertTrue(!Saved.lost(GSON, null, Claims.read(GSON, null)));
+		// A later version's field, or a broken claim, would be gone at the next save: set aside first.
+		JsonObject later = PARSER.parse(whole).getAsJsonObject();
+		later.getAsJsonArray("claims").get(0).getAsJsonObject().addProperty("style", "ranged");
+		assertTrue(Saved.lost(GSON, later.toString(), Claims.read(GSON, later.toString())));
+		JsonObject broken = PARSER.parse(whole).getAsJsonObject();
+		broken.getAsJsonArray("claims").set(1, PARSER.parse("\"garbage\""));
+		assertEquals(1, Claims.read(GSON, broken.toString()).recent().size());
+		assertTrue(Saved.lost(GSON, broken.toString(), Claims.read(GSON, broken.toString())));
+		JsonObject newer = PARSER.parse(goal).getAsJsonObject();
+		newer.addProperty("deadline", NOW);
+		assertTrue(Saved.lost(GSON, newer.toString(), Savings.readGoal(GSON, newer.toString())));
+		assertTrue(Saved.lost(GSON, "{\"name\":", Savings.readGoal(GSON, "{\"name\":")));
+		// One copy is kept: the first, then only a save at least as full, never a stub over it.
+		assertTrue(Saved.setAside(null, whole));
+		assertTrue(!Saved.setAside(whole, whole));
+		assertTrue(!Saved.setAside(whole, "{\"claims\":["));
+		assertTrue(Saved.setAside("{\"claims\":[", whole));
 	}
 
 	@Test

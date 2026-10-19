@@ -1080,7 +1080,28 @@ public class CodexGearRoadmapPlugin extends Plugin
 
 	private void loadClaims()
 	{
-		claims = Claims.read(gson, configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, CLAIMS_KEY));
+		String saved = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, CLAIMS_KEY);
+		claims = Claims.read(gson, saved);
+		keepAside(CLAIMS_KEY, saved, claims);
+	}
+
+	/**
+	 * Sets a save aside under its key plus "Unreadable" when part of it could not be read (a broken
+	 * entry, a later version's field), before the next write goes over it; one copy, never over a
+	 * fuller one.
+	 */
+	private void keepAside(String key, String saved, Object read)
+	{
+		if (profile == null || !Saved.lost(gson, saved, read))
+		{
+			return;
+		}
+		String aside = key + "Unreadable";
+		if (Saved.setAside(configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, aside), saved))
+		{
+			log.warn("Part of the saved {} could not be read; it is kept as it was as {}", key, aside);
+			configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, profile, aside, saved);
+		}
 	}
 
 	private void saveClaims()
@@ -1096,7 +1117,9 @@ public class CodexGearRoadmapPlugin extends Plugin
 		goal = null;
 		goalAffordable = null;
 		goalAnnounced = false;
-		goal = Savings.readGoal(gson, configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, GOAL_KEY));
+		String saved = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, GOAL_KEY);
+		goal = Savings.readGoal(gson, saved);
+		keepAside(GOAL_KEY, saved, goal);
 	}
 
 	private void saveGoal()

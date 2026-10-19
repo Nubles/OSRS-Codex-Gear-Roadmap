@@ -55,7 +55,7 @@ Codex Quartermaster, Plunder Pilot and Pest Control Pilot read the gear bank thi
 
 Damage follows the game's formulas as the OSRS Wiki documents them, including the special effects that matter for upgrades (Salve amulet, slayer helmet, void, crystal armour, the twisted bow, dragon hunter and demonbane weapons, enchanted bolts and more) and monsters with their own rules (Zulrah's damage cap, the Corporeal Beast, tormented demons). The tests check the engine against the wiki's DPS calculator. The road picks the upgrade with the most damage per coin, adds it, and searches again, so each step is weighed against the gear the steps before it built. Prices are RuneLite's live Grand Exchange prices; ironmen see a total cost instead of their coins.
 
-Saves damaged in part keep everything that can still be read.
+Saves damaged in part keep everything that can still be read, and a road behind or savings goal that could not be read whole (or holds a later version's fields) is first copied aside, one copy each, so the next save never writes over the only copy.
 
 ## Rules posture
 

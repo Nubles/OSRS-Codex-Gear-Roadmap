@@ -106,6 +106,95 @@ public final class Saved
 		return kept;
 	}
 
+	/** The longest damaged save set aside; one past it is only logged, so the profile never doubles in size for it. */
+	public static final int MAX_ASIDE = 1_000_000;
+
+	/**
+	 * True when {@code json} was saved and {@code read}, what was read from it, written out again lacks
+	 * part of it: a broken entry left out, or a later version's field passed over in silence. Such a
+	 * save would be lost at the next write, so it is set aside first. Only the shape is compared, not
+	 * the figures, which reading may bring back to sense.
+	 */
+	public static boolean lost(Gson gson, String json, Object read)
+	{
+		JsonElement saved = tree(gson, json);
+		if (json == null || json.trim().isEmpty())
+		{
+			return false;
+		}
+		JsonElement reread;
+		try
+		{
+			reread = read == null ? null : gson.toJsonTree(read);
+		}
+		catch (RuntimeException | StackOverflowError e)
+		{
+			reread = null;
+		}
+		return saved == null || !covers(saved, reread);
+	}
+
+	/** True when every field and list entry in {@code saved} is still there in {@code reread}; a field saved as null was nothing to lose. */
+	static boolean covers(JsonElement saved, JsonElement reread)
+	{
+		if (saved == null || saved.isJsonNull())
+		{
+			return true;
+		}
+		if (reread == null || reread.isJsonNull())
+		{
+			return false;
+		}
+		if (saved.isJsonObject())
+		{
+			if (!reread.isJsonObject())
+			{
+				return false;
+			}
+			JsonObject now = reread.getAsJsonObject();
+			for (java.util.Map.Entry<String, JsonElement> field : saved.getAsJsonObject().entrySet())
+			{
+				if (!covers(field.getValue(), now.get(field.getKey())))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+		if (saved.isJsonArray())
+		{
+			if (!reread.isJsonArray() || reread.getAsJsonArray().size() < saved.getAsJsonArray().size())
+			{
+				return false;
+			}
+			JsonArray then = saved.getAsJsonArray();
+			JsonArray now = reread.getAsJsonArray();
+			for (int i = 0; i < then.size(); i++)
+			{
+				if (!covers(then.get(i), now.get(i)))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+		return true;
+	}
+
+	/**
+	 * Whether a save that could not be read whole should be set aside in place of the copy already
+	 * there, which is kept to just one: yes when there is none, and otherwise only for a save at least
+	 * as long, so a later stub never replaces a fuller copy.
+	 */
+	public static boolean setAside(String kept, String damaged)
+	{
+		if (damaged == null || damaged.trim().isEmpty() || damaged.length() > MAX_ASIDE)
+		{
+			return false;
+		}
+		return kept == null || kept.isEmpty() || !kept.equals(damaged) && damaged.length() >= kept.length();
+	}
+
 	/** A whole number, or null for anything else (text, a fraction, too big to be a long). */
 	public static Long whole(JsonElement e)
 	{
