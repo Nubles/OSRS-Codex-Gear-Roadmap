@@ -3,6 +3,7 @@ package com.codex.gearroadmap.core;
 import com.codex.gearroadmap.data.Gear;
 import com.codex.gearroadmap.data.RoadmapData;
 import com.codex.gearroadmap.data.Target;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -319,7 +320,7 @@ public final class Calc
 			damage = accuracy * npc.mean(0, max, 1, 1, 0);
 		}
 		int ticks = speed(weapon);
-		String label = capital(type) + ", " + stance.toLowerCase();
+		String label = capital(type) + ", " + stance.toLowerCase(Locale.ROOT);
 		return new Result(Result.Kind.MELEE, damage / (ticks * TICK), max, accuracy, ticks, label, prayer.name, null);
 	}
 

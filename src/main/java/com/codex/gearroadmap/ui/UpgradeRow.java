@@ -10,6 +10,7 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.geom.Ellipse2D;
+import java.util.Locale;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -112,7 +113,7 @@ final class UpgradeRow
 				detail = o.isAmmo() ? "Price per 1,000" : Format.value(o.getCost(), o.getGain());
 				if (kind != null && before != null && kind != before)
 				{
-					detail = "To " + kind.toString().toLowerCase() + (detail.isEmpty() ? "" : " · " + detail);
+					detail = "To " + kind.toString().toLowerCase(Locale.ROOT) + (detail.isEmpty() ? "" : " · " + detail);
 					detailColor = Theme.mix(Theme.TEXT_MUTED, tint, 0.6);
 				}
 		}
@@ -141,7 +142,7 @@ final class UpgradeRow
 		tip.append("<br>").append(Format.dps(after.getDps())).append(" DPS after, max hit ").append(after.getMaxHit());
 		if (after.getStyle() != null)
 		{
-			tip.append(", ").append(Ui.escape(after.getStyle().toLowerCase()));
+			tip.append(", ").append(Ui.escape(after.getStyle().toLowerCase(Locale.ROOT)));
 		}
 		double was = o.getGain() > 0 && o.getAfter().dps() > o.getGain() ? target.getHp() / (o.getAfter().dps() - o.getGain()) : 0;
 		double now = after.secondsToKill(target);

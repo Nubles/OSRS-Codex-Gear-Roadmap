@@ -8,6 +8,7 @@ import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.data.Gear;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.Locale;
 import java.util.function.Consumer;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -164,7 +165,7 @@ final class RoadmapView
 			text.append("Prices are live Grand Exchange prices. ");
 		}
 		text.append("Ammunition is priced per 1,000. Assumes ")
-			.append(report.getBoosts() == null ? "no boosts" : report.getBoosts().toLowerCase())
+			.append(report.getBoosts() == null ? "no boosts" : report.getBoosts().toLowerCase(Locale.ROOT))
 			.append(" and your best unlocked prayers.");
 		Boolean slayer = report.getSlayer();
 		if (report.getSavings() == null && !report.isIronman() && report.getRoadmap() != null && !report.getRoadmap().getPath().isEmpty())

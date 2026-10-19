@@ -14,6 +14,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.swing.JLabel;
@@ -97,7 +98,7 @@ final class LoadoutView
 			Result.Kind wanted = kindIndex == 0 ? null : Result.Kind.values()[kindIndex - 1];
 			String name = map.getTarget().getName();
 			stack.add(Rows.note(wanted != null && !map.getTarget().allows(wanted.name())
-				? name + " can't be hurt with " + wanted.toString().toLowerCase() + "."
+				? name + " can't be hurt with " + wanted.toString().toLowerCase(Locale.ROOT) + "."
 				: "You own nothing that can attack " + name + " this way.", 190));
 			return stack;
 		}
@@ -193,12 +194,12 @@ final class LoadoutView
 			String where = c.getWhere() == Swap.Where.INVENTORY ? "In your inventory" : "In your bank";
 			Card row = Rows.line(new IconBadge(c.getWear().getId(), icons, true), c.getWear().getName(),
 				off == null ? where : where + ", for " + off.getName(), null, null);
-			row.setToolTipText("<html>" + Ui.escape(c.getWear().getName()) + " in your " + Gear.SLOT_NAMES[c.getWear().getSlot()].toLowerCase()
+			row.setToolTipText("<html>" + Ui.escape(c.getWear().getName()) + " in your " + Gear.SLOT_NAMES[c.getWear().getSlot()].toLowerCase(Locale.ROOT)
 				+ " slot" + (off == null ? "" : " instead of " + Ui.escape(off.getName())) + "</html>");
 			stack.add(row);
 		}
 		String now = swap.getWornKind() == null ? "What you're wearing can't hurt " + target + "."
-			: "You're wearing " + Format.dps(swap.getWornDps()) + " DPS of " + swap.getWornKind().toString().toLowerCase() + " against " + target + ".";
+			: "You're wearing " + Format.dps(swap.getWornDps()) + " DPS of " + swap.getWornKind().toString().toLowerCase(Locale.ROOT) + " against " + target + ".";
 		stack.add(Rows.note(now + " The loadout above does " + Format.dps(swap.getBestDps()) + ".", 190));
 	}
 
@@ -206,7 +207,7 @@ final class LoadoutView
 	{
 		if (r.getSpell() != null)
 		{
-			return r.getSpell() + ", " + r.getStyle().toLowerCase();
+			return r.getSpell() + ", " + r.getStyle().toLowerCase(Locale.ROOT);
 		}
 		return r.getStyle();
 	}

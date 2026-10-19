@@ -6,6 +6,7 @@ import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.geom.Path2D;
+import java.util.Locale;
 import javax.swing.JComponent;
 
 /** A small-caps heading with a gold diamond and a line that fades into the dark. */
@@ -21,7 +22,7 @@ public class SectionHeader extends JComponent
 
 	public SectionHeader(String text, String trailing)
 	{
-		this.text = text.toUpperCase();
+		this.text = text.toUpperCase(Locale.ROOT);
 		this.trailing = trailing;
 		setFont(Theme.small());
 		setPreferredSize(new Dimension(10, 20));

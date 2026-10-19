@@ -175,6 +175,6 @@ public final class Target
 	/** Whether the target can be hurt with this kind of attack: melee, ranged or magic. */
 	public boolean allows(String kind)
 	{
-		return only == null || only.contains(kind.toLowerCase());
+		return only == null || only.contains(kind.toLowerCase(Locale.ROOT));
 	}
 }

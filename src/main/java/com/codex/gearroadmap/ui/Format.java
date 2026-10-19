@@ -1,5 +1,7 @@
 package com.codex.gearroadmap.ui;
 
+import java.util.Locale;
+
 /** Coins, damage and times in the short forms the panel uses. */
 public final class Format
 {
@@ -39,14 +41,14 @@ public final class Format
 		{
 			return String.valueOf(Math.round(value));
 		}
-		String text = String.format("%.1f", value);
+		String text = String.format(Locale.ENGLISH, "%.1f", value);
 		return text.endsWith(".0") ? text.substring(0, text.length() - 2) : text;
 	}
 
 	/** Damage per second to two places. */
 	public static String dps(double dps)
 	{
-		return String.format("%.2f", Math.max(0, dps));
+		return String.format(Locale.ENGLISH, "%.2f", Math.max(0, dps));
 	}
 
 	/** "+0.42", for a gain. */
