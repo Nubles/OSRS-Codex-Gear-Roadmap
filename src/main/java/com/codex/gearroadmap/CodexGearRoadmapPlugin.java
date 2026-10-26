@@ -12,6 +12,7 @@ import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Saved;
+import com.codex.gearroadmap.core.Shortlist;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.Swap;
 import com.codex.gearroadmap.core.SlayerTask;
@@ -110,6 +111,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private static final String GOAL_KEY = "goal";
 	/** The upgrades picked up from the road, for the Roadmap's "Road behind" list. */
 	private static final String CLAIMS_KEY = "claims";
+	static final String SHORTLIST_KEY = "shortlist";
 	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
 	static final String LEDGER_GROUP = "codexledger";
 	static final String LEDGER_KEY = "ledger";
@@ -166,6 +168,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 	private final Set<String> claimed = new HashSet<>();
 	/** The road behind: upgrades picked up, saved per account. */
 	private Claims claims = new Claims();
+	/** Targets the player shortlisted to weigh upgrades across together. */
+	private Shortlist shortlist = Shortlist.empty();
 
 	private RoadmapData data;
 	private Advisor advisor;
@@ -282,7 +286,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 			}
 		};
 		panel = new GearRoadmapPanel(icons, name -> clientThread.invoke(() -> aim(name)),
-			option -> clientThread.invoke(() -> setGoal(option)));
+			option -> clientThread.invoke(() -> setGoal(option)), name -> clientThread.invoke(() -> toggleShortlist(name)));
 		panel.setShare(new ShareActions()
 		{
 			@Override
@@ -375,6 +379,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		survey = null;
 		claimed.clear();
 		claims = new Claims();
+		shortlist = Shortlist.empty();
 		goal = null;
 		worth = null;
 		chronicle = Collections.emptyList();
@@ -424,6 +429,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		survey = null;
 		claimed.clear();
 		claims = new Claims();
+		shortlist = Shortlist.empty();
 		goal = null;
 		worth = null;
 		chronicle = Collections.emptyList();
@@ -812,6 +818,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		profile = key;
 		loadGoal();
 		loadClaims();
+		loadShortlist();
 		readWorth();
 		readChronicle();
 		Bank saved = readBank(gson, configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, BANK_KEY));
@@ -1076,6 +1083,30 @@ public class CodexGearRoadmapPlugin extends Plugin
 				return;
 			}
 		}
+	}
+
+	private void loadShortlist()
+	{
+		String saved = configManager.getRSProfileConfiguration(CodexGearRoadmapConfig.GROUP, SHORTLIST_KEY);
+		shortlist = Shortlist.read(gson, saved);
+	}
+
+	/** The player right-clicked a target to put it on the shortlist, or take it off. */
+	private void toggleShortlist(String name)
+	{
+		shortlist = shortlist.toggle(name);
+		if (profile != null)
+		{
+			if (shortlist.isEmpty())
+			{
+				configManager.unsetConfiguration(CodexGearRoadmapConfig.GROUP, profile, SHORTLIST_KEY);
+			}
+			else
+			{
+				configManager.setConfiguration(CodexGearRoadmapConfig.GROUP, profile, SHORTLIST_KEY, shortlist.write(gson));
+			}
+		}
+		dirty = true;
 	}
 
 	private void loadClaims()
@@ -1346,6 +1377,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 		List<Fights.Logged> sessions = new ArrayList<>(chronicle);
 		sessions.addAll(readLogged(CHRONICLE_CURRENT, false));
 		Fights.Tally tally = sessions.isEmpty() ? null : Fights.tally(sessions, data.targets(), System.currentTimeMillis());
+		List<String> listedNames = shortlist.getNames();
+		List<Target> listedTargets = shortlist.targets(data.targets());
 		int ticket = generation.incrementAndGet();
 		executor.execute(() ->
 		{
@@ -1364,10 +1397,13 @@ public class CodexGearRoadmapPlugin extends Plugin
 					// Ironmen cannot buy, so there is nothing to weigh for them.
 					List<Fights.Pick> fights = ironman ? Collections.emptyList()
 						: advisor.fights(owned, fighter, tally, id -> prices.getOrDefault(id, 0L));
+					List<Fights.Pick> listedPicks = ironman ? Collections.emptyList()
+						: advisor.shortlist(owned, fighter, listedTargets, id -> prices.getOrDefault(id, 0L));
 					Report planned = new Report(true, map, cached.rows, boosts, owned.size(), bankSeen)
 						.withAccount(ironman, seasonal, task, slayer)
 						.withTask(following, taskTargets, shownTask)
 						.withExtras(tally, fights, Levels.ahead(advisor.planner().calc(), map, fighter))
+						.withShortlist(listedNames, listedPicks)
 						// Ironmen cannot sell, so nothing is outgrown for coins.
 						.withOutgrown(ironman ? null : Outgrown.of(owned, cached.rows, g -> advisor.planner().wieldable(g, fighter),
 							g -> sellable.contains(g.getId()), id -> prices.getOrDefault(id, 0L)));

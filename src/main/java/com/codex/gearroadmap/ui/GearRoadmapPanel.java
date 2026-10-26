@@ -28,6 +28,7 @@ public class GearRoadmapPanel extends PluginPanel
 	private final ItemIcons icons;
 	private final Consumer<String> onAim;
 	private final Consumer<Roadmap.Option> onGoal;
+	private final Consumer<String> onShortlist;
 	private final Crest crest = new Crest();
 	private final Segmented tabs = new Segmented(true, "Roadmap", "Loadout", "Targets");
 	private final Segmented kinds = new Segmented(false, LoadoutView.KINDS);
@@ -58,13 +59,15 @@ public class GearRoadmapPanel extends PluginPanel
 	/**
 	 * @param onAim called with a target's name when the player picks it
 	 * @param onGoal called with an upgrade to save for, or null to clear the goal
+	 * @param onShortlist called with a target's name to put it on the shortlist, or take it off
 	 */
-	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim, Consumer<Roadmap.Option> onGoal)
+	public GearRoadmapPanel(ItemIcons icons, Consumer<String> onAim, Consumer<Roadmap.Option> onGoal, Consumer<String> onShortlist)
 	{
 		super(false);
 		this.icons = icons;
 		this.onAim = onAim;
 		this.onGoal = onGoal;
+		this.onShortlist = onShortlist;
 		setLayout(new BorderLayout());
 		setBackground(Theme.INK);
 
@@ -315,7 +318,7 @@ public class GearRoadmapPanel extends PluginPanel
 		{
 			showTab(0);
 			onAim.accept(name);
-		}, icons));
+		}, onShortlist, icons));
 	}
 
 	private static void replace(JScrollPane scroll, JComponent view)
