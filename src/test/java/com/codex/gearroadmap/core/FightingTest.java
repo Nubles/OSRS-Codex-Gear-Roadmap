@@ -32,7 +32,7 @@ public class FightingTest
 		assertEquals("Sand Crab", f.match("Sand crab").getName());
 		assertEquals("The Leviathan", f.match("The Leviathan").getName());
 		assertEquals("Grotesque Guardians", f.match("Dusk").getName());
-		assertEquals("Grotesque Guardians", f.match("Dawn").getName());
+		assertEquals("Dawn (Grotesque Guardians)", f.match("Dawn").getName());
 		assertEquals("Vet'ion", f.match("Vet'ion").getName());
 		assertEquals("Kree'arra", f.match("Kree arra".replace(' ', '\'')).getName());
 		assertNull(f.match("Banker"));

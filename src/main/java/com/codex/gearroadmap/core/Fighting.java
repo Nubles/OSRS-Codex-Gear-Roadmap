@@ -17,7 +17,7 @@ public final class Fighting
 	/** Monsters the game names apart from the target that stands for them. */
 	private static final String[][] ALIASES = {
 		{"dusk", "grotesque guardians"},
-		{"dawn", "grotesque guardians"},
+		{"dawn", "dawn (grotesque guardians)"},
 	};
 
 	private final Map<String, Target> byKey = new HashMap<>();

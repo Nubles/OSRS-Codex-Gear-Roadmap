@@ -6,9 +6,11 @@ import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.LayoutManager;
+import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
+import java.util.function.Consumer;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -23,6 +25,7 @@ public class Card extends JPanel
 	private boolean hover;
 	private boolean highlighted;
 	private Runnable onClick;
+	private Consumer<Point> onMenu;
 
 	public Card(LayoutManager layout)
 	{
@@ -78,10 +81,21 @@ public class Card extends JPanel
 				{
 					onClick.run();
 				}
+				else if (SwingUtilities.isRightMouseButton(e) && onMenu != null)
+				{
+					onMenu.accept(SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), Card.this));
+				}
 			}
 		};
 		addMouseListener(adapter);
 		Ui.forwardMouse(this, adapter);
+		return this;
+	}
+
+	/** What a right-click opens, given where on the card it was; call after {@link #onClick}. */
+	public Card onMenu(Consumer<Point> action)
+	{
+		onMenu = action;
 		return this;
 	}
 

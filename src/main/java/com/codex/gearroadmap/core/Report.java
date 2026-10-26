@@ -27,6 +27,8 @@ public final class Report
 	private Swap swap;
 	private Outgrown outgrown;
 	private List<Claims.Claim> claims = Collections.emptyList();
+	private List<String> shortlist = Collections.emptyList();
+	private List<Fights.Pick> shortlistPicks = Collections.emptyList();
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -99,6 +101,30 @@ public final class Report
 		return fights;
 	}
 
+	/**
+	 * A copy that knows the targets the player shortlisted, such as the bosses left to finish, and
+	 * the upgrades that save the most fighting time across all of them.
+	 */
+	public Report withShortlist(List<String> names, List<Fights.Pick> picks)
+	{
+		Report r = copy(roadmap);
+		r.shortlist = names == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(names));
+		r.shortlistPicks = picks == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(picks));
+		return r;
+	}
+
+	/** The shortlisted targets' names, in the order they were added. */
+	public List<String> getShortlist()
+	{
+		return shortlist;
+	}
+
+	/** Upgrades weighed across the shortlist, best value first. */
+	public List<Fights.Pick> getShortlistPicks()
+	{
+		return shortlistPicks;
+	}
+
 	/** The next level worth training in each skill behind the best loadout, best value first. */
 	public List<Levels.Step> getLevels()
 	{
@@ -167,6 +193,8 @@ public final class Report
 		r.swap = swap;
 		r.outgrown = outgrown;
 		r.claims = claims;
+		r.shortlist = shortlist;
+		r.shortlistPicks = shortlistPicks;
 		return r;
 	}
 

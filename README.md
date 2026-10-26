@@ -17,7 +17,8 @@ It is part of the **Codex** suite and shares its look: warm ink, aged gold and t
 - **Road behind.** Each upgrade you pick up from the road is kept with the damage it added, where and the day.
 - **Outgrown.** Combat gear you own that none of your best loadouts wear, with what it would sell for (not shown to ironmen).
 - **Loadout.** The best loadout from what you own, laid out like the equipment screen, with its damage, max hit, accuracy and kill time, for melee, ranged and magic. It lists what to put on from your inventory or bank, and the next level that would raise your damage.
-- **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim the road at it. While your slayer task covers a listed monster, the road follows the task.
+- **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim the road at it. While your slayer task covers a listed monster, the road follows the task. The Grotesque Guardians are listed twice: Dusk, who takes only melee, and Dawn, who can also be shot.
+- **Shortlist.** Right-click targets to shortlist them, such as the bosses left on your collection log. The Targets tab then ranks the upgrades that save the most fighting time across all of them at once, over 100 kills of each.
 - **Road card.** **Save card** or **Copy** turns your road into a card to share: your loadout, every stop on the road with its price and damage, and your savings goal.
 - **Upgrade plaque.** When you get an upgrade from your road, a plaque in the game view shows the damage it adds and what is next.
 

@@ -55,6 +55,7 @@ public final class SlayerTask
 		cover("kraken", "cave kraken", "cave kraken boss");
 		cover("thermonuclear smoke devil", "smoke devils");
 		cover("grotesque guardians", "gargoyles");
+		cover("dawn (grotesque guardians)", "gargoyles");
 		cover("sarachnis", "spiders");
 		cover("kalphite queen", "kalphites");
 		cover("dagannoth rex", "dagannoth", "dagannoth kings");

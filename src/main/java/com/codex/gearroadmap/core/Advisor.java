@@ -27,6 +27,8 @@ public final class Advisor
 {
 	public static final int STEPS = 8;
 	public static final int AMMO_STACK = 1000;
+	/** Kills of each shortlisted target an upgrade is weighed over. */
+	public static final int SHORTLIST_KILLS = 100;
 	private static final int SIDE_LIST = 4;
 	/** How many of the cheapest do-nothing-alone pieces the road tries in pairs. */
 	private static final int PAIR_POOL = 10;
@@ -363,6 +365,36 @@ public final class Advisor
 			addStart(starts, owned, fighter.withTask(SlayerTask.ALWAYS), t, helmet);
 			addStart(starts, owned, fighter.withTask(SlayerTask.NEVER), t, all - helmet);
 		}
+		return weigh(owned, fighter, starts, prices, Fights.MIN_SECONDS * tally.getDays() / Fights.DAYS);
+	}
+
+	/**
+	 * Upgrades weighed across a shortlist the player chose, such as the bosses left to finish: the
+	 * fighting time each would save over {@link #SHORTLIST_KILLS} kills of every listed target,
+	 * ranked by time saved per coin. A target the player cannot hurt yet is left out.
+	 */
+	public List<Fights.Pick> shortlist(Collection<Gear> ownedGear, Fighter fighter, List<Target> targets, Prices prices)
+	{
+		if (targets == null || targets.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+		Set<Gear> owned = new LinkedHashSet<>(ownedGear);
+		List<Start> starts = new ArrayList<>();
+		for (Target t : targets)
+		{
+			addStart(starts, owned, fighter, t, SHORTLIST_KILLS);
+		}
+		return weigh(owned, fighter, starts, prices, 0);
+	}
+
+	/** Every upgrade the player can wear and buy now, by the fighting time it saves over the starts per coin. */
+	private List<Fights.Pick> weigh(Set<Gear> owned, Fighter fighter, List<Start> starts, Prices prices, double minSeconds)
+	{
+		if (starts.isEmpty())
+		{
+			return Collections.emptyList();
+		}
 		List<Fights.Pick> picks = new ArrayList<>();
 		Map<Fights.Pick, Double> value = new HashMap<>();
 		for (Candidate c : candidates(owned))
@@ -390,7 +422,7 @@ public final class Advisor
 				total += saved;
 				where.merge(t.getName(), saved, Double::sum);
 			}
-			if (total < Fights.MIN_SECONDS * tally.getDays() / Fights.DAYS)
+			if (total <= 0 || total < minSeconds)
 			{
 				continue;
 			}
