@@ -38,6 +38,7 @@ CATALOGUE = [
     ("Dragon mace", {A: 60}),
     ("Dragon sword", {A: 60}),
     ("Dragon warhammer", {S: 60}),
+    ("Granite hammer", {A: 50, S: 50}),
     ("Abyssal whip", {A: 70}),
     ("Abyssal tentacle", {A: 75}, {"build": [12004, 4151], "note": "A whip and a kraken tentacle"}),
     ("Abyssal dagger", {A: 70}),
@@ -254,6 +255,7 @@ ONLY = {
     "Kree'arra": ["ranged", "magic"],
     "Zulrah": ["ranged", "magic"],
     "Grotesque Guardians": ["melee"],
+    "Dawn (Grotesque Guardians)": ["melee", "ranged"],
     "The Leviathan": ["ranged", "magic"],
 }
 
@@ -283,6 +285,7 @@ TARGETS = [
     ("Boss", "Kraken", "Kraken", "Kraken"),
     ("Boss", "Thermonuclear smoke devil", None, None),
     ("Boss", "Dusk", "Second form", "Grotesque Guardians"),
+    ("Boss", "Dawn", None, "Dawn (Grotesque Guardians)"),
     ("Boss", "Duke Sucellus", "Post-quest, Awake", "Duke Sucellus"),
     ("Boss", "The Leviathan", "Post-quest", "The Leviathan"),
     ("Boss", "The Whisperer", "Post-quest", "The Whisperer"),

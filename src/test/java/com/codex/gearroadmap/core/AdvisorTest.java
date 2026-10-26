@@ -33,7 +33,7 @@ public class AdvisorTest
 	@Test
 	public void everyCatalogueItemResolves()
 	{
-		assertEquals(199, data.catalogue().size());
+		assertEquals(200, data.catalogue().size());
 		assertTrue(data.targets().size() > 60);
 	}
 
