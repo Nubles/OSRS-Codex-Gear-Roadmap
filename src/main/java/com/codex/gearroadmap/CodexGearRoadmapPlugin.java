@@ -1,5 +1,6 @@
 package com.codex.gearroadmap;
 
+import com.codex.gearroadmap.notes.FieldNotes;
 import com.codex.gearroadmap.core.Advisor;
 import com.codex.gearroadmap.core.Aim;
 import com.codex.gearroadmap.core.Claims;
@@ -13,6 +14,9 @@ import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Saved;
 import com.codex.gearroadmap.core.LogPages;
+import com.codex.gearroadmap.core.Specs;
+import com.codex.gearroadmap.core.Result;
+import com.codex.gearroadmap.core.Planner;
 import com.codex.gearroadmap.core.Shortlist;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.Swap;
@@ -173,6 +177,9 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Inject
 	private CodexGearRoadmapConfig config;
 
+	/** The optional local record of what the plugin read and decided. */
+	private FieldNotes notes;
+
 	private final UpgradePlaque plaque = new UpgradePlaque();
 	private final AtomicInteger generation = new AtomicInteger();
 	private final Set<String> claimed = new HashSet<>();
@@ -273,6 +280,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Override
 	protected void startUp() throws IOException
 	{
+		notes = new FieldNotes(this::getPluginDirectory, gson);
+		if (config.fieldNotes())
+		{
+			notes.open();
+		}
 		migrateConfig();
 		data = RoadmapData.load(gson);
 		advisor = new Advisor(data);
@@ -353,6 +365,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		if (notes != null)
+		{
+			notes.shutdown();
+			notes = null;
+		}
 		overlayManager.remove(plaque);
 		clientToolbar.removeNavigation(navButton);
 		plaque.clear();
@@ -457,6 +474,18 @@ public class CodexGearRoadmapPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
+		if (CodexGearRoadmapConfig.GROUP.equals(event.getGroup()) && "fieldNotes".equals(event.getKey()) && notes != null)
+		{
+			if (config.fieldNotes())
+			{
+				notes.open();
+			}
+			else
+			{
+				notes.close();
+			}
+			return;
+		}
 		if (LEDGER_GROUP.equals(event.getGroup()))
 		{
 			// Codex Ledger saved its book: only the savings pace moves, never the plan.
@@ -1525,6 +1554,46 @@ public class CodexGearRoadmapPlugin extends Plugin
 
 	private void publish(Report report, String name)
 	{
+		if (notes != null && notes.isOpen() && report != null && report.getRoadmap() != null)
+		{
+			// What the road was built from and what it chose, so a strange pick can be traced.
+			Roadmap map = report.getRoadmap();
+			com.google.gson.JsonObject n = new com.google.gson.JsonObject();
+			n.addProperty("target", map.getTarget().getName());
+			Planner.Plan best = map.getNow() == null ? null : map.getNow().best();
+			if (best != null && best.getResult() != null)
+			{
+				Result r = best.getResult();
+				n.addProperty("kind", String.valueOf(r.getKind()));
+				n.addProperty("dps", r.getDps());
+				n.addProperty("max", r.getMaxHit());
+				n.addProperty("accuracy", r.getAccuracy());
+				n.addProperty("style", r.getStyle());
+				n.addProperty("loadout", String.valueOf(best.getLoadout()));
+			}
+			com.google.gson.JsonArray path = new com.google.gson.JsonArray();
+			for (Roadmap.Step step : map.getPath())
+			{
+				com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+				o.addProperty("name", step.getOption().getName());
+				o.addProperty("cost", step.getOption().getCost());
+				o.addProperty("gain", step.getOption().getGain());
+				path.add(o);
+			}
+			n.add("path", path);
+			Specs.View specs = report.getSpecs();
+			if (specs != null && specs.getOwned() != null)
+			{
+				n.addProperty("spec", specs.getOwned().getWeapon().getName());
+				n.addProperty("specs", specs.getOwned().getSpecs());
+				n.addProperty("specSeconds", specs.getOwned().getSeconds());
+				n.addProperty("noSpecSeconds", specs.getOwned().getWithout());
+			}
+			n.addProperty("owned", report.getOwned());
+			n.addProperty("shortlist", String.join(", ", report.getShortlist()));
+			n.addProperty("logLeft", String.join(", ", report.getLogLeft()));
+			notes.noteChanged("road", n);
+		}
 		GearRoadmapPanel target = panel;
 		if (target != null)
 		{
