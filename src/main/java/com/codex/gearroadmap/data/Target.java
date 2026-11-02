@@ -155,6 +155,29 @@ public final class Target
 		return ((Number) weak.get(1)).intValue();
 	}
 
+	/** The same monster with its defence level lowered, as a defence-draining special attack leaves it. */
+	public Target withDefence(int level)
+	{
+		Target t = new Target();
+		t.id = id;
+		t.name = name;
+		t.group = group;
+		t.hp = hp;
+		t.def = Math.max(0, level);
+		t.mag = mag;
+		t.mb = mb;
+		t.d = d;
+		t.size = size;
+		t.attr = attr;
+		t.slayer = slayer;
+		t.weak = weak;
+		t.only = only;
+		t.wild = wild;
+		t.fa = fa;
+		t.up = up;
+		return t;
+	}
+
 	@Override
 	public String toString()
 	{

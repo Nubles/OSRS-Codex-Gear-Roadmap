@@ -29,6 +29,8 @@ public final class Report
 	private List<Claims.Claim> claims = Collections.emptyList();
 	private List<String> shortlist = Collections.emptyList();
 	private List<Fights.Pick> shortlistPicks = Collections.emptyList();
+	private Specs.View specs;
+	private List<String> logLeft = Collections.emptyList();
 
 	public Report(boolean loggedIn, Roadmap roadmap, List<Roadmap.Survey> survey, String boosts, int owned, boolean bankSeen)
 	{
@@ -113,6 +115,36 @@ public final class Report
 		return r;
 	}
 
+	/** A copy that knows the special attacks worth bringing to the focused fight. */
+	public Report withSpecs(Specs.View specs)
+	{
+		Report r = copy(roadmap);
+		r.specs = specs;
+		return r;
+	}
+
+	/** A copy that knows the bosses still to finish on the collection log, nearest to done first. */
+	public Report withLogLeft(List<String> left)
+	{
+		Report r = copy(roadmap);
+		r.logLeft = left == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(left));
+		return r;
+	}
+
+	/** Bosses left on the collection log that are not shortlisted yet. */
+	public List<String> getLogLeft()
+	{
+		List<String> out = new ArrayList<>(logLeft);
+		out.removeAll(shortlist);
+		return out;
+	}
+
+	/** Spec weapons for the focused fight, or null; only meant for the roadmap's own target. */
+	public Specs.View getSpecs()
+	{
+		return specs != null && roadmap != null && specs.getTarget() == roadmap.getTarget() ? specs : null;
+	}
+
 	/** The shortlisted targets' names, in the order they were added. */
 	public List<String> getShortlist()
 	{
@@ -195,6 +227,8 @@ public final class Report
 		r.claims = claims;
 		r.shortlist = shortlist;
 		r.shortlistPicks = shortlistPicks;
+		r.specs = specs;
+		r.logLeft = logLeft;
 		return r;
 	}
 

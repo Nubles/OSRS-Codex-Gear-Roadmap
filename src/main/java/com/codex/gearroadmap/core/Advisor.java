@@ -334,7 +334,25 @@ public final class Advisor
 				}
 			}
 		}
+		for (Specs.Spec spec : Specs.SPECS)
+		{
+			Gear g = data.named(spec.key);
+			if (g != null)
+			{
+				ids.add(g.getId());
+			}
+		}
 		return ids;
+	}
+
+	/** Special attack weapons for the fight with the best owned loadout. */
+	public Specs.View specs(Collection<Gear> owned, Fighter fighter, Roadmap map, Prices prices, boolean canBuy)
+	{
+		if (map == null || map.getNow() == null || map.getNow().best() == null)
+		{
+			return null;
+		}
+		return new Specs(data, planner).view(owned, fighter, map.getTarget(), map.getNow().best().getLoadout(), prices, canBuy);
 	}
 
 	/**

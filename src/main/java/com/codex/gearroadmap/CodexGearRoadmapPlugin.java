@@ -12,6 +12,7 @@ import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Outgrown;
 import com.codex.gearroadmap.core.Saved;
+import com.codex.gearroadmap.core.LogPages;
 import com.codex.gearroadmap.core.Shortlist;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.Swap;
@@ -42,6 +43,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,6 +58,7 @@ import javax.swing.SwingUtilities;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.NPC;
@@ -64,6 +67,7 @@ import net.runelite.api.Player;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
+import net.runelite.api.StructComposition;
 import net.runelite.api.WorldType;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
@@ -112,6 +116,12 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** The upgrades picked up from the road, for the Roadmap's "Road behind" list. */
 	private static final String CLAIMS_KEY = "claims";
 	static final String SHORTLIST_KEY = "shortlist";
+	/** The game's collection log: its tabs enum, and the params naming each page and listing its slots. */
+	private static final int LOG_TAB_ENUM = 2102;
+	private static final int LOG_TAB_PAGES_PARAM = 683;
+	private static final int LOG_PAGE_NAME_PARAM = 689;
+	private static final int LOG_PAGE_ITEMS_PARAM = 690;
+	private static final int LOG_REPLACEMENT_ENUM = 3721;
 	/** Codex Ledger's config group and the key it saves its net worth history under, read and never written. */
 	static final String LEDGER_GROUP = "codexledger";
 	static final String LEDGER_KEY = "ledger";
@@ -380,6 +390,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		claimed.clear();
 		claims = new Claims();
 		shortlist = Shortlist.empty();
+		logPages = null;
 		goal = null;
 		worth = null;
 		chronicle = Collections.emptyList();
@@ -430,6 +441,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		claimed.clear();
 		claims = new Claims();
 		shortlist = Shortlist.empty();
+		logPages = null;
 		goal = null;
 		worth = null;
 		chronicle = Collections.emptyList();
@@ -1094,7 +1106,14 @@ public class CodexGearRoadmapPlugin extends Plugin
 	/** The player right-clicked a target to put it on the shortlist, or take it off. */
 	private void toggleShortlist(String name)
 	{
-		shortlist = shortlist.toggle(name);
+		if (Shortlist.FROM_LOG.equals(name))
+		{
+			shortlist = shortlist.addAll(logLeft());
+		}
+		else
+		{
+			shortlist = shortlist.toggle(name);
+		}
 		if (profile != null)
 		{
 			if (shortlist.isEmpty())
@@ -1107,6 +1126,72 @@ public class CodexGearRoadmapPlugin extends Plugin
 			}
 		}
 		dirty = true;
+	}
+
+	/** The collection log's boss and raid pages, read from the game cache once a session. */
+	private Map<String, List<Integer>> logPages;
+
+	/** Bosses still to finish on the log, nearest to done first; empty without Codex Log Insight's progress. */
+	private List<String> logLeft()
+	{
+		Set<Integer> owned = LogPages.readOwned(gson, configManager.getRSProfileConfiguration(LogPages.INSIGHT_GROUP, LogPages.INSIGHT_KEY));
+		if (owned == null)
+		{
+			return Collections.emptyList();
+		}
+		if (logPages == null)
+		{
+			logPages = readLogPages();
+		}
+		return LogPages.unfinished(logPages, owned, data.targets());
+	}
+
+	private Map<String, List<Integer>> readLogPages()
+	{
+		Map<String, List<Integer>> pages = new LinkedHashMap<>();
+		EnumComposition tabs = client.getEnum(LOG_TAB_ENUM);
+		if (tabs == null)
+		{
+			return pages;
+		}
+		Map<Integer, Integer> replace = new HashMap<>();
+		EnumComposition swap = client.getEnum(LOG_REPLACEMENT_ENUM);
+		if (swap != null)
+		{
+			int[] keys = swap.getKeys();
+			int[] values = swap.getIntVals();
+			for (int i = 0; i < Math.min(keys.length, values.length); i++)
+			{
+				replace.put(keys[i], values[i]);
+			}
+		}
+		int[] tabStructs = tabs.getIntVals();
+		// Bosses and raids only: the first two tabs.
+		for (int t = 0; t < Math.min(2, tabStructs.length); t++)
+		{
+			StructComposition tab = client.getStructComposition(tabStructs[t]);
+			EnumComposition pageEnum = tab == null ? null : client.getEnum(tab.getIntValue(LOG_TAB_PAGES_PARAM));
+			if (pageEnum == null)
+			{
+				continue;
+			}
+			for (int pageId : pageEnum.getIntVals())
+			{
+				StructComposition page = client.getStructComposition(pageId);
+				EnumComposition items = page == null ? null : client.getEnum(page.getIntValue(LOG_PAGE_ITEMS_PARAM));
+				if (items == null)
+				{
+					continue;
+				}
+				List<Integer> ids = new ArrayList<>();
+				for (int raw : items.getIntVals())
+				{
+					ids.add(replace.getOrDefault(raw, raw));
+				}
+				pages.put(page.getStringValue(LOG_PAGE_NAME_PARAM), ids);
+			}
+		}
+		return pages;
 	}
 
 	private void loadClaims()
@@ -1377,6 +1462,7 @@ public class CodexGearRoadmapPlugin extends Plugin
 		List<Fights.Logged> sessions = new ArrayList<>(chronicle);
 		sessions.addAll(readLogged(CHRONICLE_CURRENT, false));
 		Fights.Tally tally = sessions.isEmpty() ? null : Fights.tally(sessions, data.targets(), System.currentTimeMillis());
+		List<String> left = ironman ? Collections.emptyList() : logLeft();
 		List<String> listedNames = shortlist.getNames();
 		List<Target> listedTargets = shortlist.targets(data.targets());
 		int ticket = generation.incrementAndGet();
@@ -1404,6 +1490,8 @@ public class CodexGearRoadmapPlugin extends Plugin
 						.withTask(following, taskTargets, shownTask)
 						.withExtras(tally, fights, Levels.ahead(advisor.planner().calc(), map, fighter))
 						.withShortlist(listedNames, listedPicks)
+						.withLogLeft(left)
+						.withSpecs(advisor.specs(owned, fighter, map, id -> prices.getOrDefault(id, 0L), !ironman))
 						// Ironmen cannot sell, so nothing is outgrown for coins.
 						.withOutgrown(ironman ? null : Outgrown.of(owned, cached.rows, g -> advisor.planner().wieldable(g, fighter),
 							g -> sellable.contains(g.getId()), id -> prices.getOrDefault(id, 0L)));

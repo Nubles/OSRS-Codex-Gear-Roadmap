@@ -35,6 +35,9 @@ public final class Result
 	private final String style;
 	private final String prayer;
 	private final String spell;
+	/** The attack and defence rolls behind the accuracy, kept so a special attack can scale them. */
+	private long attackRoll;
+	private long defenceRoll;
 
 	Result(Kind kind, double dps, int maxHit, double accuracy, int ticks, String style, String prayer, String spell)
 	{
@@ -105,7 +108,25 @@ public final class Result
 		{
 			return this;
 		}
-		return new Result(kind, dps * percent / 100.0, maxHit, accuracy, ticks, style, prayer, spell);
+		return new Result(kind, dps * percent / 100.0, maxHit, accuracy, ticks, style, prayer, spell).rolls(attackRoll, defenceRoll);
+	}
+
+	/** The same result remembering the rolls its accuracy came from. */
+	Result rolls(long attack, long defence)
+	{
+		attackRoll = attack;
+		defenceRoll = defence;
+		return this;
+	}
+
+	long getAttackRoll()
+	{
+		return attackRoll;
+	}
+
+	long getDefenceRoll()
+	{
+		return defenceRoll;
 	}
 
 	public boolean isBetterThan(Result other)

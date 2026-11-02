@@ -18,7 +18,8 @@ It is part of the **Codex** suite and shares its look: warm ink, aged gold and t
 - **Outgrown.** Combat gear you own that none of your best loadouts wear, with what it would sell for (not shown to ironmen).
 - **Loadout.** The best loadout from what you own, laid out like the equipment screen, with its damage, max hit, accuracy and kill time, for melee, ranged and magic. It lists what to put on from your inventory or bank, and the next level that would raise your damage.
 - **Targets.** Over 70 bosses, slayer monsters and training spots with your damage and kill time against each. Click one to aim the road at it. While your slayer task covers a listed monster, the road follows the task. The Grotesque Guardians are listed twice: Dusk, who takes only melee, and Dawn, who can also be shot.
-- **Shortlist.** Right-click targets to shortlist them, such as the bosses left on your collection log. The Targets tab then ranks the upgrades that save the most fighting time across all of them at once, over 100 kills of each.
+- **Shortlist.** Right-click targets to shortlist them, such as the bosses left on your collection log. The Targets tab then ranks the upgrades that save the most fighting time across all of them at once, over 100 kills of each. With Codex Log Insight installed, one button shortlists every boss whose log page still has empty slots, nearest to done first.
+- **Special attacks.** The Loadout tab counts the spec weapon you own that saves the most time: how many specs open each kill and the kill time with them. Defence drains (dragon warhammer, Bandos godsword, Arclight) make every later hit land more often, and damage specs (claws, AGS, dragon dagger, blowpipe and more) land big hits early. It also names up to three spec weapons to buy that would save more, with their price (not shown to ironmen).
 - **Road card.** **Save card** or **Copy** turns your road into a card to share: your loadout, every stop on the road with its price and damage, and your savings goal.
 - **Upgrade plaque.** When you get an upgrade from your road, a plaque in the game view shows the damage it adds and what is next.
 
@@ -48,13 +49,14 @@ Gear Roadmap works on its own. If you also use these, it reads (never writes) wh
 
 - **[Codex Ledger](https://github.com/Nubles/OSRS-Codex-Ledger)**: your net worth history, so the savings goal says roughly how many days the rest should take at last week's pace.
 - **[Codex Session Chronicle](https://github.com/Nubles/OSRS-Codex-Session-Chronicle)**: the kills it logged over the last 30 days, so the Targets tab can name the buy that would have saved you the most time where you actually fight.
+- **[Codex Log Insight](https://github.com/Nubles/OSRS-Codex-Log-Insight)**: the collection log slots it has seen filled, so the Targets tab can shortlist the bosses you still need.
 - **[Codex Bank Steward](https://github.com/Nubles/OSRS-Codex-Bank-Steward)**: its saved copy of your bank, so there is no need to open the bank first.
 
 Codex Quartermaster, Plunder Pilot and Pest Control Pilot read the gear bank this plugin saves, and Codex Bank Steward reads its savings goal.
 
 ## How the numbers work
 
-Damage follows the game's formulas as the OSRS Wiki documents them, including the special effects that matter for upgrades (Salve amulet, slayer helmet, void, crystal armour, the twisted bow, dragon hunter and demonbane weapons, enchanted bolts and more) and monsters with their own rules (Zulrah's damage cap, the Corporeal Beast, tormented demons). The tests check the engine against the wiki's DPS calculator. The road picks the upgrade with the most damage per coin, adds it, and searches again, so each step is weighed against the gear the steps before it built. Prices are RuneLite's live Grand Exchange prices; ironmen see a total cost instead of their coins.
+Damage follows the game's formulas as the OSRS Wiki documents them, including the special effects that matter for upgrades (Salve amulet, slayer helmet, void, crystal armour, the twisted bow, dragon hunter and demonbane weapons, enchanted bolts and more) and monsters with their own rules (Zulrah's damage cap, the Corporeal Beast, tormented demons). The tests check the engine against the wiki's DPS calculator. The road picks the upgrade with the most damage per coin, adds it, and searches again, so each step is weighed against the gear the steps before it built. Special attacks are an estimate: each kill opens with as many specs as the energy allows (10% back every 30 seconds, with 15 seconds between kills counted), and a drain is weighed by its chance to land. Prices are RuneLite's live Grand Exchange prices; ironmen see a total cost instead of their coins.
 
 Saves damaged in part keep everything that can still be read, and a road behind or savings goal that could not be read whole (or holds a later version's fields) is first copied aside, one copy each, so the next save never writes over the only copy.
 

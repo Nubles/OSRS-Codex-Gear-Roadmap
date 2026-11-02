@@ -321,7 +321,7 @@ public final class Calc
 		}
 		int ticks = speed(weapon);
 		String label = capital(type) + ", " + stance.toLowerCase(Locale.ROOT);
-		return new Result(Result.Kind.MELEE, damage / (ticks * TICK), max, accuracy, ticks, label, prayer.name, null);
+		return new Result(Result.Kind.MELEE, damage / (ticks * TICK), max, accuracy, ticks, label, prayer.name, null).rolls(roll, defence);
 	}
 
 	private Result ranged(Loadout lo, Totals tot, Fighter f, Target t, String stance)
@@ -461,7 +461,7 @@ public final class Calc
 			}
 		}
 		int ticks = Math.max(1, speed(weapon) - ("Rapid".equals(stance) ? 1 : 0));
-		return new Result(Result.Kind.RANGED, damage / (ticks * TICK), max, accuracy, ticks, stance, prayer.name, null);
+		return new Result(Result.Kind.RANGED, damage / (ticks * TICK), max, accuracy, ticks, stance, prayer.name, null).rolls(roll, defence);
 	}
 
 	/** The ruby bolt's damage averaged over every health the monster passes through from full to dead. */
@@ -675,7 +675,7 @@ public final class Calc
 			perHit = 0.8 * perHit + 0.2 * npc.mean(0, max, 1, 1, 8);
 		}
 		double damage = accuracy * perHit;
-		return new Result(Result.Kind.MAGIC, damage / (ticks * TICK), max, accuracy, ticks, style, prayer.name, spell);
+		return new Result(Result.Kind.MAGIC, damage / (ticks * TICK), max, accuracy, ticks, style, prayer.name, spell).rolls(roll, defence);
 	}
 
 	/** Whether a revenant weapon, kept charged, gets its half again against a Wilderness monster. */
