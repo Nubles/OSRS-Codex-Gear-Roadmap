@@ -14,6 +14,7 @@ public final class CatalogueEntry
 	private int[] build;
 	private String earn;
 	private String note;
+	private Map<String, Integer> src;
 
 	private transient Gear gear;
 
@@ -67,6 +68,15 @@ public final class CatalogueEntry
 	public boolean isEarned()
 	{
 		return earn != null;
+	}
+
+	/**
+	 * Skill name to the level it takes to get the item yourself, such as the Sailing level of the
+	 * island its monster lives on; empty when buying it is the only road the catalogue names.
+	 */
+	public Map<String, Integer> getSource()
+	{
+		return src == null ? Collections.emptyMap() : src;
 	}
 
 	public String getNote()

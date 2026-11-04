@@ -231,6 +231,28 @@ CATALOGUE = [
     # Effects that carry no visible bonus
     ("Slayer helmet (i)", {}, {"earn": "Slayer reward points, imbued at Nightmare Zone or Soul Wars"}),
     ("Salve amulet(i)", {}, {"earn": "Imbue a salve amulet"}),
+    # Sailing. Tradeable, so anyone can buy them; src is what it takes to get one yourself, which
+    # the roadmap holds an ironman to. Wield requirements and sources are from the OSRS Wiki.
+    ("Belle's folly", {A: 65}, {"note": "Shellbane Gryphon drop (Great Conch, Sailing), polished at the Giants' Foundry",
+                                "src": {"Sailing": 45, "Slayer": 51, "Smithing": 70}}),
+    ("Hallowfell", {A: 75}, {"note": "Mad Angel drop on Wyrmscraig (Sailing). Its cleave on nearby foes is not counted",
+                             "src": {"Sailing": 62, "Crafting": 60, "Mining": 53, "Runecraft": 47}}),
+    ("Camphor blowpipe", {R: 45}, {"note": "Camphor logs and a squid beak (Sailing). Counted with mithril darts",
+                                   "src": {"Sailing": 47, "Fishing": 52, "Woodcutting": 66, "Fletching": 58}}),
+    ("Ironwood blowpipe", {R: 55}, {"note": "Ironwood logs and a squid beak (Sailing). Counted with adamant darts",
+                                    "src": {"Sailing": 72, "Fishing": 52, "Woodcutting": 80, "Fletching": 72}}),
+    ("Rosewood blowpipe", {R: 65}, {"note": "Rosewood logs and a squid beak (Sailing). Counted with rune darts",
+                                    "src": {"Sailing": 79, "Fishing": 52, "Woodcutting": 92, "Fletching": 84}}),
+    ("Aquanite hopper", {R: 60}, {"note": "Aquanite tendon from Ynysdail (Sailing). Its second crossbow shot is not counted",
+                                  "src": {"Sailing": 73, "Slayer": 78, "Smithing": 60}}),
+    # The wiki's ranged gear progression, mid game
+    ("Hueycoatl hide coif", {R: 70, D: 40}),
+    ("Hueycoatl hide body", {R: 70, D: 40}),
+    ("Hueycoatl hide chaps", {R: 70}),
+    ("Hueycoatl hide vambraces", {R: 70}),
+    ("Antler guard", {P: 50}),
+    ("Necklace of Fangs", {}),
+    ("Necklace of rupture", {"Hitpoints": 90}),
     # Revenant weapons: half again as strong against monsters in the Wilderness
     ("Ursine chainmace", {A: 70}, {"note": "Wilderness only, charged with revenant ether"}),
     ("Webweaver bow", {R: 70}, {"note": "Wilderness only, charged with revenant ether"}),

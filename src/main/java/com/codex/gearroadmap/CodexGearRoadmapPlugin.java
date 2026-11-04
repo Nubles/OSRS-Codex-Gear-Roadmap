@@ -121,6 +121,9 @@ public class CodexGearRoadmapPlugin extends Plugin
 	static final String CHRONICLE_CURRENT = "current";
 	private static final Skill[] SKILLS = {
 		Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE, Skill.RANGED, Skill.MAGIC, Skill.PRAYER, Skill.HITPOINTS, Skill.AGILITY,
+		// What it takes to get gear yourself: an ironman's road waits on these (Sailing to reach the islands).
+		Skill.SAILING, Skill.SLAYER, Skill.SMITHING, Skill.CRAFTING, Skill.MINING, Skill.RUNECRAFT, Skill.FISHING,
+		Skill.WOODCUTTING, Skill.FLETCHING,
 	};
 	private static final Set<Integer> UNLOCK_VARBITS = new HashSet<>(Arrays.asList(
 		VarbitID.PRAYER_RIGOUR_UNLOCKED, VarbitID.PRAYER_AUGURY_UNLOCKED, VarbitID.KR_KNIGHTWAVES_STATE,
@@ -1264,8 +1267,11 @@ public class CodexGearRoadmapPlugin extends Plugin
 		boolean kandarin = client.getVarbitValue(VarbitID.KANDARIN_DIARY_HARD_COMPLETE) == 1;
 		taskName = currentTask();
 		SlayerTask task = SlayerTask.of(config.slayerTask(), taskName);
+		// Ironmen get their own gear, so what its source takes (such as Sailing) gates their road.
+		boolean ironman = client.getVarbitValue(VarbitID.IRONMAN) > 0;
 		return new Fighter(levels, config.boost(), config.prayers(), piety, rigour, augury, ancients, task)
-			.withUnlocks(deadeye, vigour, kandarin);
+			.withUnlocks(deadeye, vigour, kandarin)
+			.withSelfSourced(ironman);
 	}
 
 	/** The name of the player's current slayer task, as the slayer helper shows it, or null. */

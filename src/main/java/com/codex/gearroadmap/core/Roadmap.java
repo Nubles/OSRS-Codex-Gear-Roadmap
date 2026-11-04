@@ -23,6 +23,7 @@ public final class Roadmap
 		private final String earn;
 		private final String note;
 		private final boolean ammo;
+		private int sailing;
 
 		Option(String name, List<Gear> pieces, Gear icon, long cost, double gain, double before, Planner.Plan after,
 			String missing, String earn, String note, boolean ammo)
@@ -92,6 +93,18 @@ public final class Roadmap
 		public String getNote()
 		{
 			return note;
+		}
+
+		/** The Sailing level it takes to get it yourself, or 0 when Sailing plays no part. */
+		public int getSailing()
+		{
+			return sailing;
+		}
+
+		Option fromSailing(Integer level)
+		{
+			sailing = level == null ? 0 : level;
+			return this;
 		}
 
 		/** Ammunition is priced per thousand. */

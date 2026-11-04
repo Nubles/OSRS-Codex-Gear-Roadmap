@@ -59,7 +59,7 @@ final class UpgradeRow
 		}
 		JPanel badge = new JPanel(new BorderLayout());
 		badge.setOpaque(false);
-		badge.add(new IconBadge(o.getIcon().getId(), icons, mode != Mode.LOCKED), BorderLayout.NORTH);
+		badge.add(new IconBadge(o.getIcon().getId(), icons, mode != Mode.LOCKED).sailing(o.getSailing() > 0), BorderLayout.NORTH);
 		lead.add(badge, BorderLayout.CENTER);
 		card.add(lead, BorderLayout.WEST);
 
@@ -149,6 +149,10 @@ final class UpgradeRow
 		{
 			tip.append("<br>").append(Ui.escape(o.getNote()));
 		}
+		if (o.getSailing() > 0)
+		{
+			tip.append("<br>").append(Ui.escape(sailingLine(o)));
+		}
 		Result after = o.getAfter().getResult();
 		tip.append("<br>").append(Format.dps(after.getDps())).append(" DPS after, max hit ").append(after.getMaxHit());
 		if (after.getStyle() != null)
@@ -172,6 +176,18 @@ final class UpgradeRow
 			card.onClick(onClick);
 		}
 		return card;
+	}
+
+	/** What Sailing has to do with an upgrade, for its tooltip. */
+	static String sailingLine(Roadmap.Option o)
+	{
+		String missing = o.getMissing();
+		if (missing != null && missing.endsWith(" to get"))
+		{
+			return "Getting it yourself takes " + o.getSailing() + " Sailing";
+		}
+		return o.getCost() > 0 ? "From Sailing: " + o.getSailing() + " Sailing to get it yourself, none to buy it"
+			: "From Sailing: " + o.getSailing() + " Sailing to get it yourself";
 	}
 
 	/** A small gilt medallion with the step number; dim once the road passes the player's coins. */
