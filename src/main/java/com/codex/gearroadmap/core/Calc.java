@@ -342,11 +342,7 @@ public final class Calc
 		}
 		int bonus = tot.offence[Gear.RANGED];
 		int strength = tot.rangedStrength;
-		if (key.startsWith("toxic blowpipe"))
-		{
-			// Loaded with dragon darts.
-			strength += 35;
-		}
+		strength += dartStrength(key);
 		if (tot.firesAmmo && lo.wearsAny("dizana's quiver", "blessed dizana's quiver", "dizana's max cape"))
 		{
 			// A charged quiver adds to arrows and bolts the weapon fires.
@@ -676,6 +672,33 @@ public final class Calc
 		}
 		double damage = accuracy * perHit;
 		return new Result(Result.Kind.MAGIC, damage / (ticks * TICK), max, accuracy, ticks, style, prayer.name, spell);
+	}
+
+	/**
+	 * The ranged strength of the darts a blowpipe is counted loaded with: the best each one fires.
+	 * The toxic blowpipe takes dragon darts (+35); Sailing's wooden blowpipes go up to mithril
+	 * (+9, camphor), adamant (+17, ironwood) and rune darts (+26, rosewood), as the wiki's DPS
+	 * calculator offers them.
+	 */
+	static int dartStrength(String weaponKey)
+	{
+		if (weaponKey.startsWith("toxic blowpipe"))
+		{
+			return 35;
+		}
+		if (weaponKey.startsWith("camphor blowpipe"))
+		{
+			return 9;
+		}
+		if (weaponKey.startsWith("ironwood blowpipe"))
+		{
+			return 17;
+		}
+		if (weaponKey.startsWith("rosewood blowpipe"))
+		{
+			return 26;
+		}
+		return 0;
 	}
 
 	/** Whether a revenant weapon, kept charged, gets its half again against a Wilderness monster. */

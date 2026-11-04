@@ -42,6 +42,7 @@ public final class Fighter
 	private boolean deadeye;
 	private boolean vigour;
 	private boolean kandarinHard;
+	private boolean selfSourced;
 
 	public Fighter(Map<String, Integer> levels, Boost boost, boolean prayers, boolean piety, boolean rigour, boolean augury,
 		boolean ancients, boolean onTask)
@@ -72,13 +73,32 @@ public final class Fighter
 		f.deadeye = deadeye;
 		f.vigour = vigour;
 		f.kandarinHard = kandarinHard;
+		f.selfSourced = selfSourced;
 		return f;
+	}
+
+	/**
+	 * The same fighter getting their gear themselves, as an ironman does: an item is then within
+	 * reach only once they have the levels its source takes, such as the Sailing to reach its island.
+	 */
+	public Fighter withSelfSourced(boolean self)
+	{
+		Fighter f = withUnlocks(deadeye, vigour, kandarinHard);
+		f.selfSourced = self;
+		return f;
+	}
+
+	/** Whether gear has to be got rather than bought. */
+	public boolean isSelfSourced()
+	{
+		return selfSourced;
 	}
 
 	/** The same fighter with another slayer helmet assumption, to weigh kills made on and off a task apart. */
 	public Fighter withTask(SlayerTask other)
 	{
-		return new Fighter(levels, boost, prayers, piety, rigour, augury, ancients, other).withUnlocks(deadeye, vigour, kandarinHard);
+		return new Fighter(levels, boost, prayers, piety, rigour, augury, ancients, other).withUnlocks(deadeye, vigour, kandarinHard)
+			.withSelfSourced(selfSourced);
 	}
 
 	/** The same fighter with one skill at another level, to weigh what training it is worth. */
@@ -86,14 +106,16 @@ public final class Fighter
 	{
 		Map<String, Integer> raised = new HashMap<>(levels);
 		raised.put(skill, level);
-		return new Fighter(raised, boost, prayers, piety, rigour, augury, ancients, task).withUnlocks(deadeye, vigour, kandarinHard);
+		return new Fighter(raised, boost, prayers, piety, rigour, augury, ancients, task).withUnlocks(deadeye, vigour, kandarinHard)
+			.withSelfSourced(selfSourced);
 	}
 
 	/** A maxed account with every unlock, used for previews and tests. */
 	public static Fighter maxed(Boost boost)
 	{
 		Map<String, Integer> levels = new HashMap<>();
-		for (String skill : new String[]{"Attack", "Strength", "Defence", "Ranged", "Magic", "Prayer", "Hitpoints", "Agility"})
+		for (String skill : new String[]{"Attack", "Strength", "Defence", "Ranged", "Magic", "Prayer", "Hitpoints", "Agility", "Slayer", "Sailing",
+			"Smithing", "Crafting", "Mining", "Runecraft", "Fishing", "Woodcutting", "Fletching"})
 		{
 			levels.put(skill, 99);
 		}
@@ -167,6 +189,38 @@ public final class Fighter
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The first thing standing between the fighter and an item: a wield requirement as "75 Ranged",
+	 * or, for a fighter who gets their own gear, a level its source takes as "47 Sailing to get",
+	 * Sailing named first. Null when nothing does.
+	 */
+	public String missing(Map<String, Integer> requirements, Map<String, Integer> source)
+	{
+		String wield = missing(requirements);
+		if (wield != null || !selfSourced || source == null || source.isEmpty())
+		{
+			return wield;
+		}
+		Integer sailing = source.get("Sailing");
+		if (sailing != null && level("Sailing") < sailing)
+		{
+			return sailing + " Sailing to get";
+		}
+		String get = missing(source);
+		return get == null ? null : get + " to get";
+	}
+
+	/** How many levels in all the fighter is short of an item's wield and, if they get their own gear, source levels. */
+	public int shortfall(Map<String, Integer> requirements, Map<String, Integer> source)
+	{
+		Map<String, Integer> all = new HashMap<>(requirements);
+		if (selfSourced && source != null)
+		{
+			source.forEach((k, v) -> all.merge(k, v, Math::max));
+		}
+		return shortfall(all);
 	}
 
 	/** How many levels in all the fighter is short of these requirements. */

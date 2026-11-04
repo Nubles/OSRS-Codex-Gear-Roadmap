@@ -106,13 +106,13 @@ public final class Advisor
 			{
 				continue;
 			}
-			String missing = fighter.missing(c.requirements);
+			String missing = fighter.missing(c.requirements, c.source);
 			Roadmap.Option option = new Roadmap.Option(c.name, c.pieces, c.icon(), cost, gain, base, after, missing,
-				c.earn, cost == 0 && c.earn == null ? imbueNote(c) : c.note, c.ammo);
+				c.earn, cost == 0 && c.earn == null ? imbueNote(c) : c.note, c.ammo).fromSailing(c.source.get("Sailing"));
 			if (missing != null)
 			{
 				locked.add(option);
-				shortBy.put(option, fighter.shortfall(c.requirements));
+				shortBy.put(option, fighter.shortfall(c.requirements, c.source));
 			}
 			else if (cost == 0)
 			{
@@ -192,7 +192,8 @@ public final class Advisor
 		Planner.Plan after = planner.withAdded(start, owned, pieces, fighter, target);
 		double gain = Math.max(0, after.dps() - start.dps());
 		return new Roadmap.Option(c.name, pieces, c.icon(), cost, gain, start.dps(), gain > 0 ? after : start.best(),
-			fighter.missing(req), null, note, c.ammo);
+			fighter.missing(req), null, note, c.ammo).fromSailing(pieces.size() == 1 && data.entry(pieces.get(0)) != null
+			? data.entry(pieces.get(0)).getSource().get("Sailing") : null);
 	}
 
 	/** Whether every piece of a goal is owned already, any variant of it counting. */
@@ -234,7 +235,7 @@ public final class Advisor
 			Map<Candidate, Long> flatCost = new HashMap<>();
 			for (Candidate c : candidates)
 			{
-				if (used.contains(c) || have.containsAll(c.pieces) || fighter.missing(c.requirements) != null)
+				if (used.contains(c) || have.containsAll(c.pieces) || fighter.missing(c.requirements, c.source) != null)
 				{
 					continue;
 				}
@@ -304,7 +305,7 @@ public final class Advisor
 			Planner.Plan plan = next.dps() >= pickPlan.dps() ? next.best() : pickPlan;
 			spent += pickCost;
 			Roadmap.Option option = new Roadmap.Option(pick.name, pick.pieces, pick.icon(), pickCost, plan.dps() - base, base, plan,
-				null, null, pick.note, pick.ammo);
+				null, null, pick.note, pick.ammo).fromSailing(pick.source.get("Sailing"));
 			path.add(new Roadmap.Step(option, spent, spent <= coins));
 			// Build the next step on the loadout this one showed, or its gain is counted twice.
 			current = next.keeping(plan);
@@ -399,7 +400,7 @@ public final class Advisor
 		Map<Fights.Pick, Double> value = new HashMap<>();
 		for (Candidate c : candidates(owned))
 		{
-			if (c.earn != null || fighter.missing(c.requirements) != null)
+			if (c.earn != null || fighter.missing(c.requirements, c.source) != null)
 			{
 				continue;
 			}
@@ -601,8 +602,8 @@ public final class Advisor
 			{
 				continue;
 			}
-			list.add(new Candidate(g.getName(), Collections.singletonList(g), entry.getRequirements(), entry.getEarn(),
-				entry.getNote(), g.getSlot() == Gear.AMMO));
+			list.add(new Candidate(g.getName(), Collections.singletonList(g), entry.getRequirements(), entry.getSource(),
+				entry.getEarn(), entry.getNote(), g.getSlot() == Gear.AMMO));
 		}
 		for (String[] bundle : BUNDLES)
 		{
@@ -657,15 +658,24 @@ public final class Advisor
 		final String name;
 		final List<Gear> pieces;
 		final Map<String, Integer> requirements;
+		/** Levels it takes to get it yourself, held to only for a fighter who gets their own gear. */
+		final Map<String, Integer> source;
 		final String earn;
 		final String note;
 		final boolean ammo;
 
 		Candidate(String name, List<Gear> pieces, Map<String, Integer> requirements, String earn, String note, boolean ammo)
 		{
+			this(name, pieces, requirements, Collections.emptyMap(), earn, note, ammo);
+		}
+
+		Candidate(String name, List<Gear> pieces, Map<String, Integer> requirements, Map<String, Integer> source, String earn,
+			String note, boolean ammo)
+		{
 			this.name = name;
 			this.pieces = pieces;
 			this.requirements = requirements;
+			this.source = source;
 			this.earn = earn;
 			this.note = note;
 			this.ammo = ammo;
