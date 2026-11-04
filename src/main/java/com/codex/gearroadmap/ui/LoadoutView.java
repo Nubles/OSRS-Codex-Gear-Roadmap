@@ -5,6 +5,7 @@ import com.codex.gearroadmap.core.Planner;
 import com.codex.gearroadmap.core.Levels;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
+import com.codex.gearroadmap.core.Specs;
 import com.codex.gearroadmap.core.Roadmap;
 import com.codex.gearroadmap.core.Savings;
 import com.codex.gearroadmap.core.Swap;
@@ -123,6 +124,23 @@ final class LoadoutView
 		stack.add(Rows.check(Mark.Kind.NOTE, styleLine(r), r.getPrayer() == null ? "No prayer" : r.getPrayer(), null));
 		stack.add(Rows.check(Mark.Kind.NOTE, report.getBoosts() == null ? "No boosts" : report.getBoosts(),
 			pieces(plan.getLoadout()) + " pieces worn", null));
+		Specs.View specs = preview == null && kindIndex == 0 ? report.getSpecs() : null;
+		if (specs != null)
+		{
+			Specs.Plan own = specs.getOwned();
+			if (own != null)
+			{
+				stack.add(Rows.check(Mark.Kind.GOOD, Format.time(own.getSeconds()) + " a kill with " + own.getWeapon().getName() + " specs",
+					own.getSpecs() + (own.getSpecs() == 1 ? " spec" : " specs") + " to open each kill, " + Format.time(own.getSaved()) + " faster", null));
+			}
+			for (Specs.Plan p : specs.getBuy())
+			{
+				double extra = p.getSaved() - (own == null ? 0 : own.getSaved());
+				stack.add(Rows.check(Mark.Kind.NOTE, "Spec to buy: " + p.getWeapon().getName(),
+					Format.time(extra) + " faster a kill, " + p.getSpecs() + (p.getSpecs() == 1 ? " spec" : " specs") + " each",
+					Format.coins(p.getCost())));
+			}
+		}
 		int uptime = map.getTarget().uptime(r.getKind().name());
 		if (uptime < 100)
 		{

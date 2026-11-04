@@ -105,6 +105,27 @@ public final class Shortlist
 		return new Shortlist(Collections.unmodifiableList(next));
 	}
 
+	/** Passed in place of a target's name to shortlist every boss left on the collection log. */
+	public static final String FROM_LOG = "\u0000log";
+
+	/** A copy with these targets added in order, keeping what is listed, up to the most kept. */
+	public Shortlist addAll(List<String> more)
+	{
+		List<String> next = new ArrayList<>(names);
+		for (String name : more)
+		{
+			if (next.size() >= KEPT)
+			{
+				break;
+			}
+			if (!next.contains(name))
+			{
+				next.add(name);
+			}
+		}
+		return new Shortlist(Collections.unmodifiableList(next));
+	}
+
 	/** The listed targets that are still on the list of targets, in shortlist order. */
 	public List<Target> targets(Collection<Target> all)
 	{

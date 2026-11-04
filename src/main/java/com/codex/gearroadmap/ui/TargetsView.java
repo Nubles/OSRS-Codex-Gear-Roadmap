@@ -5,9 +5,11 @@ import com.codex.gearroadmap.core.Fights;
 import com.codex.gearroadmap.core.Report;
 import com.codex.gearroadmap.core.Result;
 import com.codex.gearroadmap.core.Roadmap;
+import com.codex.gearroadmap.core.Shortlist;
 import com.codex.gearroadmap.data.Target;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,6 +50,19 @@ final class TargetsView
 			return stack;
 		}
 		String needle = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+		List<String> logLeft = report.getLogLeft();
+		if (needle.isEmpty() && filter == 0 && !logLeft.isEmpty() && report.getShortlist().size() < Shortlist.KEPT)
+		{
+			JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+			bar.setOpaque(false);
+			int room = Math.min(logLeft.size(), Shortlist.KEPT - report.getShortlist().size());
+			CodexButton fill = new CodexButton("Shortlist " + room + (room == 1 ? " boss" : " bosses") + " left on my log", report.getShortlist().isEmpty(),
+				() -> onShortlist.accept(Shortlist.FROM_LOG));
+			fill.setToolTipText("<html>From Codex Log Insight: bosses whose log page still has empty slots,<br>nearest to done first. "
+				+ "Upgrades are then weighed across all of them.</html>");
+			bar.add(fill);
+			stack.add(bar);
+		}
 		boolean listed = needle.isEmpty() && filter == 0 && shortlist(stack, report, icons, rows);
 		boolean fought = needle.isEmpty() && filter == 0 && fights(stack, report, icons);
 		List<String> task = report.getTaskTargets();
