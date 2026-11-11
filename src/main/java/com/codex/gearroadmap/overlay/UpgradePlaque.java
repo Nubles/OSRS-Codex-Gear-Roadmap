@@ -5,7 +5,6 @@ import com.codex.gearroadmap.ui.Theme;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Composite;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.GradientPaint;
@@ -73,7 +72,7 @@ public class UpgradePlaque extends Overlay
 	}
 
 	@Override
-	public Dimension render(Graphics2D g)
+	public Dimension render(Graphics2D graphics)
 	{
 		View v = view;
 		if (v == null)
@@ -86,8 +85,21 @@ public class UpgradePlaque extends Overlay
 			view = null;
 			return null;
 		}
+		// Drawn on a copy, so the overlay renderer's clip, composite, stroke, font and hints are never touched.
+		Graphics2D g = (Graphics2D) graphics.create();
+		try
+		{
+			return paint(g, v, age);
+		}
+		finally
+		{
+			g.dispose();
+		}
+	}
+
+	private static Dimension paint(Graphics2D g, View v, long age)
+	{
 		float alpha = (float) Math.min(1, Math.min(age / (double) FADE_MS, (v.durationMs - age) / (double) FADE_MS));
-		Composite old = g.getComposite();
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0, alpha)));
 		Theme.smooth(g);
 
@@ -147,7 +159,6 @@ public class UpgradePlaque extends Overlay
 		{
 			shadow(g, clip(v.next, small, width), x, y + small.getAscent(), Theme.TEXT_MUTED);
 		}
-		g.setComposite(old);
 		return new Dimension(WIDTH, height);
 	}
 

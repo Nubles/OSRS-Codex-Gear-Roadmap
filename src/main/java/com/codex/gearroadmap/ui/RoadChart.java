@@ -10,6 +10,7 @@ import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Shape;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
@@ -156,7 +157,9 @@ public class RoadChart extends JComponent
 		double now = map.getNow().dps();
 		double end = map.finalDps();
 		long total = path.isEmpty() ? 0 : path.get(path.size() - 1).getSpent();
-		g.setClip(frame);
+		// Never clear the clip: put back the one the chart was painted with.
+		Shape oldClip = g.getClip();
+		g.clip(frame);
 
 		// Faint contour lines, like a surveyor's map.
 		g.setStroke(new BasicStroke(1f));
@@ -234,7 +237,7 @@ public class RoadChart extends JComponent
 			drawBadge(g, xs[i + 1], ys[i + 1], i, path.get(i).isAffordable());
 		}
 
-		g.setClip(null);
+		g.setClip(oldClip);
 		g.setFont(Theme.small());
 		FontMetrics fm = g.getFontMetrics();
 		boolean coinsLabel = map.getCoins() > 0 && map.getCoins() < total;
