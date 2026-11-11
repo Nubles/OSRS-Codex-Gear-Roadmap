@@ -15,6 +15,7 @@ import java.awt.FontMetrics;
 import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
+import java.awt.Shape;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
@@ -108,7 +109,9 @@ public final class RoadCard
 		RoundRectangle2D page = new RoundRectangle2D.Float(0, 0, w, h, 18, 18);
 		g.setPaint(new GradientPaint(0, 0, Theme.mix(Theme.INK, Theme.CARD_TOP, 0.5), 0, h, Theme.INK_DEEP));
 		g.fill(page);
-		g.setClip(page);
+		// Never clear the clip: put back the one the page was drawn with.
+		Shape oldClip = g.getClip();
+		g.clip(page);
 		g.setPaint(new RadialGradientPaint(w / 2f, 40, w * 0.8f, new float[]{0f, 1f},
 			new Color[]{Theme.alpha(Theme.GOLD, 46), Theme.alpha(Theme.GOLD, 0)}));
 		g.fillRect(0, 0, w, h);
@@ -119,7 +122,7 @@ public final class RoadCard
 			g.setColor(Theme.alpha(grain.nextBoolean() ? Theme.GOLD_BRIGHT : Color.BLACK, 6 + grain.nextInt(8)));
 			g.fillRect(grain.nextInt(w), grain.nextInt(h), 1, 1);
 		}
-		g.setClip(null);
+		g.setClip(oldClip);
 		g.setStroke(new BasicStroke(1f));
 		g.setColor(Theme.alpha(Theme.GOLD, 190));
 		g.draw(new RoundRectangle2D.Float(4.5f, 4.5f, w - 9, h - 9, 14, 14));
